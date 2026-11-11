@@ -86,9 +86,10 @@ and they are cached for the next time. After a while (and on every later start) 
 
 The APK is built on Linux with `tools/build_android.sh` (Android SDK 36, NDK r30, JDK 21, Gradle 9.9.1; the script
 lists every path it reads as environment variables). It needs the toolkit,
-[xboxrecomp-option-c](https://github.com/almost-drowned-rat/xboxrecomp-option-c), and its Android runtime SDK and
-on-device compiler (made by the toolkit's `tools/android` scripts). The Android parts of the toolkit will be
-published there.
+[xboxrecomp-option-c **v1.1.0**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.1.0) (the
+exact toolkit source inside the app), and its Android runtime SDK and on-device compiler, made by the toolkit's
+`tools/android` scripts (Linux and Android changes: its `docs/option_c.md`, section 7). The release APK is signed with
+the project's own release key; `tools/build_android.sh --release` expects it outside the repository.
 
 ## Licence
 

@@ -15,6 +15,9 @@
 #   ORTA_CAPSTONE_SO   libcapstone.so for arm64 (tools/build_android_capstone.ps1 shows the CMake line)
 #   ORTA_PRIVATE       the private output root (never the repo); the build goes to $ORTA_PRIVATE/android/build
 #   XBOXRECOMP_DIR     the pinned toolkit checkout (option-c at the pin from docs/agent_l.md)
+#   ORTA_RELEASE_NAME  the release stamp (tools/release.txt; a new one makes the device build the game again)
+#   ORTA_RELEASE_KEY   --release only: the release keystore (alias "orta") and its password file beside it
+#                      (<key>.pass); default $ORTA_ANDROID_DEPS/keys/orta-release.jks - never in a repo
 # Gradle's caches and Android's debug key stay under ORTA_ANDROID_DEPS (GRADLE_USER_HOME, ANDROID_USER_HOME).
 set -euo pipefail
 
@@ -85,11 +88,14 @@ for m in xbe_parser disasm func_id abi_analysis recomp ghidra_naming; do cp -a "
 find "$sp/tools" -type d \( -name __pycache__ -o -name tests \) -prune -exec rm -rf {} +
 find "$sp/tools" -name 'test_*.py' -delete
 cp -a "$tk/templates" "$sp/templates"
+rm -rf "$sp/templates/game"          # the new-port template (README, CLAUDE.md, paths.ps1): not used by the lift
 # capstone 5.0.9: the pure-Python binding from the same source as libcapstone.so
 cp -a "$csbind" "$sp/capstone"
 find "$sp/capstone" -type d -name __pycache__ -prune -exec rm -rf {} +
 rm -rf "$sp/capstone/lib"; mkdir -p "$sp/capstone/lib"
 cp "$csso" "$sp/capstone/lib/libcapstone.so"
+# no debug info in what is shipped (it carries the build machine's paths); the dynamic symbols stay
+"$ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip" --strip-debug "$sp/capstone/lib/libcapstone.so"
 mkdir -p "$sp/orta_config"
 cp -a "$repo/config/." "$sp/orta_config/"
 echo "build_android: python assets $(du -sm "$pyA" | cut -f1) MB in $(find "$pyA" -type f | wc -l) files"
@@ -162,19 +168,64 @@ cfgT='{TOOLS}/config/game.toml'
     join_tab recomp -m tools.recomp '{XBE}' --all --game-config "$cfgT" --game-name ORTA --gen-dir '{GEN}' --disasm-dir '{PIPE}/disasm' --func-id-dir '{PIPE}/func_id' --abi-dir '{PIPE}/abi' -o '{PIPE}/recomp'
 } > "$toolsA/lift.txt"
 printf 'format\t2\nclang\t{NATIVE}/libclang_exe.so\npython\t{NATIVE}/libpython_exe.so\n' > "$toolsA/toolchain.txt"
-rel="android-dev-$(git -C "$repo" rev-parse --short HEAD)"
+rel=${ORTA_RELEASE_NAME:-android-dev-$(git -C "$repo" rev-parse --short HEAD)}   # a public APK: ORTA_RELEASE_NAME=<version>
 echo "$rel" > "$toolsA/release.txt"
 # agent B's device tests (MMIO decode / trap, bionic compat, stack dump)
 for t in libmmio_decode_a64_exe.so libmmio_trap_exe.so libcompat_bionic_exe.so libhost_stack_dump_exe.so; do
     [ -f "$andb/device_tests/$t" ] && cp -f "$andb/device_tests/$t" "$pre/$t"
 done
+# licence texts of everything the APK ships (assets/licenses, shown by BACK menu > About and licences; maintainer
+# 2026-11-11: needed before any public APK). A Turnip driver is never shipped, so Mesa is not in the list.
+licA=$assets/licenses
+rm -rf "$licA"; mkdir -p "$licA"
+lic() { [ -f "$2" ] || die "licence text missing: $2"; cp "$2" "$licA/$1"; }
+lic Orta-Recompiled_GPL-3.0.txt "$repo/LICENSE"
+lic xboxrecomp_MIT.txt "$tk/LICENSE"
+lic xboxrecomp_NOTICE.txt "$tk/NOTICE"
+lic xemu-parts_LGPL-2.1.txt "$tk/LICENSES/LGPL-2.1.txt"
+lic SMAA_MIT.txt "$tk/src/nv2a_vk/third_party/smaa/LICENSE.txt"
+lic miniz_MIT.txt "$tk/src/shaderpack/third_party/miniz/LICENSE"
+lic SDL3_zlib.txt "$sdl3/LICENSE.txt"
+lic CPython_PSF.txt "$py/lib/python3.15/LICENSE.txt"
+lic capstone_BSD-3.txt "$(dirname "$csbind")/../../LICENSE.TXT"
+lic capstone_LLVM-parts.txt "$(dirname "$csbind")/../../LICENSE_LLVM.TXT"
+lic libadrenotools_BSD-2.txt "$adreno/LICENSE"
+lic linkernsbypass.txt "$adreno/lib/linkernsbypass/LICENSE"
+lic glslang.txt "$deps/src/glslang-LICENSE.txt"
+for f in "$dtc"/LICENSES/*; do [ -f "$f" ] && lic "toolchain_$(basename "$f")" "$f"; done
+cat > "$licA/README.txt" <<'LICEOF'
+Orta Recompiled - Android: the licences of everything inside this app
+
+Orta Recompiled (this app's own code)   GPL-3.0-or-later   github.com/almost-drowned-rat/Orta-Recompiled-Android
+xboxrecomp toolkit (option-c)           MIT, parts from xemu under LGPL-2.1-or-later (NOTICE lists them)
+                                        github.com/almost-drowned-rat/xboxrecomp-option-c
+  in it: SMAA (MIT), miniz (MIT)
+SDL3                                    zlib               github.com/libsdl-org/SDL
+CPython 3.15 (embedded, for the lift)   PSF License        python.org
+capstone 5.0.9                          BSD-3-Clause (+ LLVM-derived parts)   github.com/capstone-engine/capstone
+libadrenotools + linkernsbypass         BSD-2-Clause       github.com/bylaws/libadrenotools
+glslang                                 BSD / MIT / Apache-2.0 (see glslang.txt)   github.com/KhronosGroup/glslang
+LLVM clang + lld (the on-device compiler)  Apache-2.0 WITH LLVM-exception   github.com/llvm/llvm-project
+Android NDK sysroot pieces              see toolchain_NDK-NOTICE.txt
+
+No game data, no game code and no keys are part of this app: the game is built on the device from the player's own
+disc. A Turnip driver (Mesa, MIT) is never shipped - the player chooses one.
+Panzer Dragoon Orta is a trademark of SEGA; this project is not affiliated with SEGA or Microsoft.
+LICEOF
+
 # Turnip is never shipped (maintainer 2026-11-11): the player picks a driver package when the device needs one
 rm -rf "$assets/turnip"
 echo "build_android: tools assets $(du -sm "$toolsA" | cut -f1) MB in $(find "$toolsA" -type f | wc -l) files ($rel)"
 
+sign=()
+if [ "$task" = assembleRelease ]; then
+    key=${ORTA_RELEASE_KEY:-$deps/keys/orta-release.jks}
+    [ -f "$key" ] && [ -f "${key%.jks}.pass" ] || die "release key or its password file missing: $key"
+    sign=("-PreleaseStore=$key" "-PreleasePassFile=${key%.jks}.pass")
+fi
 "$gradle/bin/gradle" -p "$repo/packaging/android" --no-daemon --console=plain --project-cache-dir "$out/gradle-cache" \
     "-Psdl3Src=$sdl3" "-PndkPath=$ndk" "-PoutDir=$out" "-PprebuiltLibs=$out/prebuilt" "-PassetsDir=$assets" \
-    "-PpythonPrefix=$py" "-Ptoolkit=$tk" "-PportIconDir=$sdkA/build" "-PadrenotoolsSrc=$adreno" "$task"
+    "-PpythonPrefix=$py" "-Ptoolkit=$tk" "-PportIconDir=$sdkA/build" "-PadrenotoolsSrc=$adreno" "${sign[@]}" "$task"
 apk=$(find "$out" -name '*.apk' -printf '%T@ %p\n' | sort -n | tail -1 | cut -d' ' -f2-)
 [ -n "$apk" ] || die "no APK found"
 echo "APK: $apk ($(du -m "$apk" | cut -f1) MB)"

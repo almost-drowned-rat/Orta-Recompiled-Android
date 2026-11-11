@@ -146,12 +146,13 @@ final class SideMenu extends FrameLayout {
             TextView t = new TextView(getContext());
             t.setTextSize(16);
             t.setTextColor(Color.WHITE);
-            t.setPadding((int) (20 * dp), (int) (13 * dp), (int) (20 * dp), (int) (13 * dp));
+            t.setPadding((int) (20 * dp), (int) (10 * dp), (int) (20 * dp), (int) (10 * dp));
             t.setOnClickListener(v -> { sel = idx; activate(+1); });
             list.addView(t, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
             rows.add(t);
         }
         sel = Math.max(0, Math.min(cursor, items.size() - 1));
+        if (sel == 0) scroll.post(() -> scroll.scrollTo(0, 0));   // a new page starts at its top line
         paint();
     }
 

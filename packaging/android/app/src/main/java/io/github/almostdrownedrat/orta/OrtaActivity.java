@@ -42,6 +42,13 @@ public class OrtaActivity extends SDLActivity {
         setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
         // the first start builds the game for many minutes: the screen stays on (also while playing)
         getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        // draw under the display cutout too (punch-hole phones; Android 9+), then hide the system bars
+        android.view.WindowManager.LayoutParams lp = getWindow().getAttributes();
+        lp.layoutInDisplayCutoutMode = android.os.Build.VERSION.SDK_INT >= 30
+            ? android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            : android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+        getWindow().setAttributes(lp);
+        immersive();
         // BACK: with targetSdk 36 the back gesture / key reaches an app only through OnBackInvokedCallback
         // (predictive back; onBackPressed and KEYCODE_BACK are no longer delivered) - handed on to SDL as AC_BACK
         // BACK opens the Android options (maintainer 2026-11-11: hide / move / hide single touch buttons); in the
@@ -59,6 +66,7 @@ public class OrtaActivity extends SDLActivity {
             android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
         // the BACK menu: a panel sliding in from the left (SideMenu.java), above the touch controls
         mMenu = new SideMenu(this);
+        mMenu.setOnClosed(this::immersive);
         mLayout.addView(mMenu, new android.widget.RelativeLayout.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
     }
@@ -133,29 +141,48 @@ public class OrtaActivity extends SDLActivity {
 
     private static final int PICK_DRIVER = 4711;
 
-    /** BACK menu > Graphics driver: choose a Turnip package, or go back to the system driver; both restart the app
-     *  (the Vulkan library picks its driver once per process). */
-    private void driverMenu() {
-        String[] items = { "Choose a Turnip driver package (.adpkg.zip)...", "Use the system driver" };
-        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("Graphics driver (restarts the game)")
-            .setItems(items, (d, which) -> {
-                if (which == 0) {
-                    Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-                    i.addCategory(Intent.CATEGORY_OPENABLE);
-                    i.setType("*/*");
-                    startActivityForResult(i, PICK_DRIVER);
-                } else {
-                    removeDriver(this);
-                    restartApp();
-                    System.exit(0);
-                }
-            }).show();
+    /** The system file picker for a Turnip package, opened in Downloads (where a downloaded .adpkg.zip lands). */
+    private void pickDriver() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        i.putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI,
+                    android.net.Uri.parse("content://com.android.providers.downloads.documents/root/downloads"));
+        startActivityForResult(i, PICK_DRIVER);
+    }
+
+    /** True full screen (maintainer 2026-11-11, Odin 2 Portal: the 3-button navigation bar stayed, the app got
+     *  1920x969 of 1920x1080). Android 11+ (API 30) no longer honours the old setSystemUiVisibility flags SDL uses:
+     *  the WindowInsetsController hides status + navigation bar (a swipe from the edge shows them for a moment), the
+     *  window draws under them and the display cutout. Called at start, on every focus gain (after the menu, the file
+     *  picker, coming back from the background) and when the BACK menu opens or closes. */
+    void immersive() {
+        android.view.Window w = getWindow();
+        if (android.os.Build.VERSION.SDK_INT >= 30) {
+            w.setDecorFitsSystemWindows(false);
+            android.view.WindowInsetsController c = w.getInsetsController();
+            if (c != null) {
+                c.hide(android.view.WindowInsets.Type.systemBars());
+                c.setSystemBarsBehavior(android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            w.getDecorView().setSystemUiVisibility(android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+                | android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | android.view.View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+        }
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) immersive();
     }
 
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
         if (request == PICK_DRIVER) {
+            immersive();
             if (result == RESULT_OK && data != null && data.getData() != null) {
                 String err = importDriver(data.getData().toString());
                 if (err.isEmpty()) { restartApp(); System.exit(0); }
@@ -176,6 +203,7 @@ public class OrtaActivity extends SDLActivity {
         if (mOverlay.isEditing()) { mOverlay.setEditing(false); return; }
         mOverlay.release();
         mMenu.open(rootPage());
+        immersive();
     }
 
     private static String pct(float f) { return Math.round(f * 100) + " %"; }
@@ -196,6 +224,10 @@ public class OrtaActivity extends SDLActivity {
                         mOverlay.setMode(m);
                         try { nativeTouchPadEnable(m != TouchOverlay.MODE_OFF); } catch (UnsatisfiedLinkError ignored) { }
                     }
+                });
+                String drv = driverName(OrtaActivity.this);
+                l.add(new SideMenu.Item("Graphics driver: " + (drv != null ? drv : "system")) {
+                    @Override void run() { mMenu.push(driverPage()); }
                 });
                 l.add(new SideMenu.Item("Controllers") { @Override void run() { mMenu.push(padPage()); } });
                 l.add(new SideMenu.Item("Move and resize touch buttons") {
@@ -219,10 +251,7 @@ public class OrtaActivity extends SDLActivity {
                 l.add(new SideMenu.Item("Reset touch layout") {
                     @Override void run() { mOverlay.resetLayout(); mMenu.refresh(); }
                 });
-                String drv = driverName(OrtaActivity.this);
-                l.add(new SideMenu.Item("Graphics driver: " + (drv != null ? drv : "system")) {
-                    @Override void run() { mMenu.close(); driverMenu(); }
-                });
+                l.add(new SideMenu.Item("About and licences") { @Override void run() { mMenu.push(aboutPage()); } });
                 return l;
             }
         };
@@ -260,6 +289,48 @@ public class OrtaActivity extends SDLActivity {
                     n++;
                 }
                 if (n == 0) l.add(new SideMenu.Item("No controller connected"));
+                return l;
+            }
+        };
+    }
+
+    /** Graphics driver (maintainer 2026-11-11: always available, not only at the first start): the system driver or a
+     *  Turnip package the player picks (.adpkg.zip, e.g. purple-turnip); either one restarts the game, since the
+     *  Vulkan library picks its driver once per process. */
+    private SideMenu.Page driverPage() {
+        return new SideMenu.Page() {
+            public String title() { return "Graphics driver"; }
+            public java.util.List<SideMenu.Item> items() {
+                java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
+                final String drv = driverName(OrtaActivity.this);
+                l.add(new SideMenu.Item("In use: " + (drv != null ? drv : "the system driver")));
+                l.add(new SideMenu.Item("Choose a Turnip driver package (.adpkg.zip)...") {
+                    @Override void run() { mMenu.close(); pickDriver(); }
+                });
+                if (drv != null)
+                    l.add(new SideMenu.Item("Use the system driver again") {
+                        @Override void run() { removeDriver(OrtaActivity.this); restartApp(); System.exit(0); }
+                    });
+                l.add(new SideMenu.Item("(the game restarts to switch the driver)"));
+                return l;
+            }
+        };
+    }
+
+    /** About and licences: assets/licenses/README.txt line by line (the full texts are in assets/licenses, staged by
+     *  tools/build_android.sh from each component's own licence file). */
+    private SideMenu.Page aboutPage() {
+        return new SideMenu.Page() {
+            public String title() { return "About and licences"; }
+            public java.util.List<SideMenu.Item> items() {
+                java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
+                try (java.io.BufferedReader r = new java.io.BufferedReader(new java.io.InputStreamReader(
+                         getAssets().open("licenses/README.txt"), java.nio.charset.StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = r.readLine()) != null) if (!line.trim().isEmpty()) l.add(new SideMenu.Item(line.trim()));
+                } catch (IOException e) {
+                    l.add(new SideMenu.Item("(no licence list in this build)"));
+                }
                 return l;
             }
         };
