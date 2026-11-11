@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- the icon's own background (assets/icon_256.png, centre of its gradient) -->
+    <color name="ic_launcher_bg">#141E2F</color>
+</resources>

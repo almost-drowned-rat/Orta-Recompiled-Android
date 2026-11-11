@@ -1,0 +1,68 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Paths come from tools\build_android.ps1 (-P...), never from a committed local.properties:
+//   sdl3Src   SDL3 source tree (its android-project Java + the native library)
+//   nativeSrc the CMake project of the native part (packaging/android/app/jni)
+//   outDir    build output root outside the repo (private\android\build)
+def sdl3Src = project.findProperty('sdl3Src')
+if (sdl3Src == null) throw new GradleException('pass -Psdl3Src=<SDL3 source> (tools\\build_android.ps1 does)')
+def outDir = project.findProperty('outDir')
+if (outDir == null) throw new GradleException('pass -PoutDir=<build folder outside the repo>')
+layout.buildDirectory = file("${outDir}/app")
+
+android {
+    namespace = 'io.github.almostdrownedrat.orta'
+    compileSdk = 36
+    ndkPath = project.findProperty('ndkPath')
+    ndkVersion = '30.0.16248370'          // = deps\android\ndk-r30 (AGP checks it against ndkPath)
+    defaultConfig {
+        applicationId = 'io.github.almostdrownedrat.orta'
+        minSdk = 29                       // Android 10: Vulkan 1.1 loader floor; the game itself needs Vulkan 1.3
+        targetSdk = 36
+        versionCode = 3     // 2: the port's icon (adaptive); 3: first build from the Arch machine (new signing key - the reinstall left launchers with a cached generic icon). A new code makes launchers drop their cached icon
+        versionName = '1.1.0-android-dev'
+        ndk { abiFilters 'arm64-v8a' }
+        externalNativeBuild {
+            cmake {
+                arguments "-DSDL3_SRC=${sdl3Src}", "-DPYTHON_PREFIX=${project.findProperty('pythonPrefix') ?: ''}",
+                          "-DXR_TOOLKIT=${project.findProperty('toolkit') ?: ''}",
+                          "-DPORT_ICON_DIR=${project.findProperty('portIconDir') ?: ''}",
+                          "-DADRENOTOOLS_SRC=${project.findProperty('adrenotoolsSrc') ?: ''}",
+                          '-DANDROID_STL=c++_static', '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+            }
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path = file('jni/CMakeLists.txt')
+            buildStagingDirectory = file("${outDir}/cxx")
+        }
+    }
+    sourceSets {
+        main {
+            // SDL's own Java glue (SDLActivity & co.) straight from the SDL3 source, not copied into this repo
+            java.srcDirs += ["${sdl3Src}/android-project/app/src/main/java"]
+            // prebuilt runtime libs (libxr_glslang.so ...) staged by tools\build_android.ps1 outside the repo
+            if (project.findProperty('prebuiltLibs')) jniLibs.srcDirs += [project.findProperty('prebuiltLibs')]
+            // python/ (stdlib + site-packages: lifter, capstone) staged by tools\build_android.ps1, extracted by
+            // OrtaActivity into internal storage at the first start of a new APK version
+            if (project.findProperty('assetsDir')) assets.srcDirs += [project.findProperty('assetsDir')]
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled = false
+        }
+    }
+    packaging {
+        // extracted to nativeLibraryDir as real files: the on-device compiler (shipped as lib*.so) must be exec'able
+        jniLibs { useLegacyPackaging = true }
+    }
+    lint { abortOnError = false }
+    androidResources {
+        // keep every staged file (Python's stdlib has names aapt would skip, e.g. starting with '_')
+        ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~'
+    }
+}

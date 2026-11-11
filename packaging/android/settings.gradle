@@ -1,0 +1,20 @@
+// Panzer Dragoon Orta Recomp - Android APK (maintainer 2026-11-11: one public APK, the game is compiled ON THE
+// DEVICE once from the player's own disc; no game code is ever part of the APK). Built by tools\build_android.ps1.
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    plugins {
+        id 'com.android.application' version '9.5.1'
+    }
+}
+dependencyResolutionManagement {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+rootProject.name = 'orta-android'
+include ':app'
