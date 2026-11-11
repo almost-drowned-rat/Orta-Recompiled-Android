@@ -65,6 +65,10 @@ Tested on:
 4. The game's code is translated and compiled on the device - **once**, about 8-10 minutes. Keep the screen on.
 5. The game starts. Every later start goes straight into the game.
 
+**Frame rate at first:** while you play, the frame rate drops now and then at the beginning and gets better the longer
+you play. That is the shader compilation: every new effect, scene or menu needs its shaders built once on the device,
+and they are cached for the next time. After a while (and on every later start) it runs much smoother.
+
 **Storage:** everything lives in the app's own storage. **Uninstalling the app deletes your saves** - keep that in mind.
 
 ## Controls
