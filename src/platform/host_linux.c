@@ -538,7 +538,7 @@ int host_init(int argc, char **argv, HostOptions *opt)
     if (!console) open_log(opt->data_dir);
     else { setvbuf(stdout, NULL, _IONBF, 0); setvbuf(stderr, NULL, _IONBF, 0); }
     /* Nothing outside the folder (CLAUDE.md, portable layout): the GPU drivers' shader caches go into data/
-     * (maintainer 2026-11-10: "portabel für jedes System" after the first start). Mesa + NVIDIA. */
+     * (portable on every system after the first start). Mesa + NVIDIA. */
     {
         char cache[HOST_PATH_MAX];
         join(cache, opt->data_dir, "shadercache");

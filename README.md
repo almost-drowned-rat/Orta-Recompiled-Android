@@ -33,7 +33,9 @@ is translated and compiled **on your device** once, and then it plays - with tou
 
 ## Status
 
-**v1.1.0 (experimental):** download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
+**v0.1.0 (experimental)** - based on **v1.1 of the Windows / Linux port**
+([Orta-Recompiled](https://github.com/almost-drowned-rat/Orta-Recompiled)). The Android port has its own version
+numbers. Download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
 and install it (Android 10+, arm64). It is signed with the project's own key - every later update installs over it.
 
 Tested on:
@@ -56,10 +58,10 @@ Tested on:
 ## How it works
 
 1. Install the app and start it.
-2. Choose the Turnip driver package (`turnip_mrpurple_T30-toasted.adpkg.zip` from your Download folder): the app asks
-   for it on devices whose own driver is too old; on all others open **BACK > Graphics driver > Choose a Turnip
-   driver package** once the game runs. The app restarts with Turnip. You can switch back to the system driver there
-   at any time.
+2. Choose the Turnip driver package (`turnip_mrpurple_T30-toasted.adpkg.zip` from your Download folder - with adb:
+   `adb push turnip_mrpurple_T30-toasted.adpkg.zip /sdcard/Download/`): the app asks for it on devices whose own
+   driver is too old; on all others open **BACK > Graphics driver > Change driver** once the game runs. The app
+   restarts with Turnip. **BACK > Graphics driver > System driver** goes back at any time.
 3. Choose your disc image in the system file picker. It is copied into the app and extracted (the copy is deleted
    afterwards; your own file stays where it is).
 4. The game's code is translated and compiled on the device - **once**, about 8-10 minutes. Keep the screen on.
@@ -69,7 +71,23 @@ Tested on:
 you play. That is the shader compilation: every new effect, scene or menu needs its shaders built once on the device,
 and they are cached for the next time. After a while (and on every later start) it runs much smoother.
 
-**Storage:** everything lives in the app's own storage. **Uninstalling the app deletes your saves** - keep that in mind.
+**Your files - saves and media:** they live in the app's folder in shared storage, reachable with adb or a file
+manager (one that shows `Android/data`):
+
+```
+/storage/emulated/0/Android/data/io.github.almostdrownedrat.orta/files/
+  saves/   your saves + settings.ini
+  media/   boot.mpg (your own boot animation)
+```
+
+Back up your saves with `adb pull /sdcard/Android/data/io.github.almostdrownedrat.orta/files/saves`.
+**Uninstalling the app deletes this folder too** - back up first. The game itself (translated and compiled from your
+disc) stays in the app's internal storage.
+
+**Boot animation (optional):** your own `boot.mpg` (MPEG-1 video + MP2 audio, like the PC port) plays before the
+title. Either **BACK > Boot animation > Import file...**, or copy it with adb:
+`adb push boot.mpg /sdcard/Android/data/io.github.almostdrownedrat.orta/files/media/`. Turn it on / off in the game:
+OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Boot animation > None** removes it again.
 
 ## Controls
 
@@ -78,9 +96,12 @@ and they are cached for the next time. After a while (and on every later start) 
 - **Gamepads** work out of the box. With the touch buttons on *Automatic* they hide while a gamepad is used. Every
   controller plays as player 1 (the game is single-player), so a handheld's own controls, a touch pad and an external
   pad all work at the same time.
-- **BACK** opens a menu that slides in from the left: the graphics driver (switch to a Turnip package or back to the
-  system driver at any time), the connected controllers, touch buttons on / off / automatic, move and resize them,
-  button size, hide single buttons, opacity, stick sensitivity, and the licences. The game keeps running behind it.
+- **BACK** opens a menu that slides in from the left (the game keeps running behind it):
+  - **Controls** - touch buttons on / off / automatic, the connected controllers, move and resize the touch buttons,
+    button size, hide single buttons, opacity, stick sensitivity, reset the layout
+  - **Graphics driver** - the system driver, or change to a Turnip package; switch at any time
+  - **Boot animation** - none, or import your boot.mpg
+  - **About and licences**
 
 ## Building
 

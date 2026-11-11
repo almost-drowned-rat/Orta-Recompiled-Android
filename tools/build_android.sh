@@ -143,8 +143,11 @@ sysr='{TOOLS}/toolchain/sysroot'
 drv=(--driver-mode=gcc --target=aarch64-linux-android29 "--sysroot=$sysr" '-resource-dir={TOOLS}/toolchain/lib/clang/23')
 subst() { sed -e 's|\$SDK|{TOOLS}/sdk|g' -e "s|\\\$SYSROOT|$sysr|g" "$1" | tr -s ' \t\r\n' '\n' | sed '/^$/d'; }
 mapfile -t sdkFlags < <(subst "$sdkB/compile_flags.txt" | grep -v -e '^--target=' -e '^--sysroot=')
+# the boot animation (media/boot.mpg) when the SDK has the toolkit's src/bootvideo (libxbox_bootvideo.a)
+boot=()
+grep -q 'libxbox_bootvideo.a' "$sdkB/link_line.txt" && boot=(-DORTA_BOOTVIDEO=1 '-I{TOOLS}/sdk/include/toolkit/bootvideo')
 cc=("${drv[@]}" -O2 -std=gnu11 "${sdkFlags[@]}" '-I{TOOLS}/src' '-I{GEN}' '-I{TOOLS}/sdk/build' '-I{TOOLS}/sdk/extra'
-    -DORTA_VULKAN=1 -D_GNU_SOURCE -w)
+    -DORTA_VULKAN=1 -D_GNU_SOURCE "${boot[@]}" -w)
 # the game's Vulkan = libvulkan_orta.so (system driver or Turnip, packaging/android/app/jni/vkshim), never -lvulkan
 mapfile -t lline < <(subst "$sdkB/link_line.txt" | sed 's|^-lvulkan$|{NATIVE}/libvulkan_orta.so|')
 link=("${drv[@]}" -shared '--ld-path={NATIVE}/libld_exe.so' -Wl,--no-undefined -Wl,-z,max-page-size=16384
@@ -185,6 +188,7 @@ lic xboxrecomp_NOTICE.txt "$tk/NOTICE"
 lic xemu-parts_LGPL-2.1.txt "$tk/LICENSES/LGPL-2.1.txt"
 lic SMAA_MIT.txt "$tk/src/nv2a_vk/third_party/smaa/LICENSE.txt"
 lic miniz_MIT.txt "$tk/src/shaderpack/third_party/miniz/LICENSE"
+lic pl_mpeg_MIT.txt "$tk/src/bootvideo/third_party/pl_mpeg/LICENSE"
 lic SDL3_zlib.txt "$sdl3/LICENSE.txt"
 lic CPython_PSF.txt "$py/lib/python3.15/LICENSE.txt"
 lic capstone_BSD-3.txt "$(dirname "$csbind")/../../LICENSE.TXT"
@@ -199,7 +203,7 @@ Orta Recompiled - Android: the licences of everything inside this app
 Orta Recompiled (this app's own code)   GPL-3.0-or-later   github.com/almost-drowned-rat/Orta-Recompiled-Android
 xboxrecomp toolkit (option-c)           MIT, parts from xemu under LGPL-2.1-or-later (NOTICE lists them)
                                         github.com/almost-drowned-rat/xboxrecomp-option-c
-  in it: SMAA (MIT), miniz (MIT)
+  in it: SMAA (MIT), miniz (MIT), pl_mpeg (MIT, the boot animation)
 SDL3                                    zlib               github.com/libsdl-org/SDL
 CPython 3.15 (embedded, for the lift)   PSF License        python.org
 capstone 5.0.9                          BSD-3-Clause (+ LLVM-derived parts)   github.com/capstone-engine/capstone

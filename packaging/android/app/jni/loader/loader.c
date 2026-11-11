@@ -274,6 +274,33 @@ int main(int argc, char **argv)
         if (set_prio) set_prio(touchpad_pad_priority);
         __android_log_print(ANDROID_LOG_INFO, "ORTA", "[LOADER] pad priority %s", set_prio ? "set" : "not in this game library");
     }
+    {   /* saves/ and media/ where the player can reach them (maintainer 2026-11-11): the app's folder in shared
+         * storage, /storage/emulated/0/Android/data/<package>/files - adb push / a file manager work there, unlike
+         * the internal storage (closed to adb for a release build). No extra permission. Removed on uninstall like
+         * the rest. OrtaActivity.migrateUserFiles moved older saves/media there. Not available (no shared storage
+         * mounted): the internal folder as before. */
+        static char save_dir[1024], media_dir[1024];
+        static char *args[64];
+        const char *ext = SDL_GetAndroidExternalStoragePath();
+        int n = 0, i;
+        if (ext && (SDL_GetAndroidExternalStorageState() & SDL_ANDROID_EXTERNAL_STORAGE_WRITE)) {
+            /* files the game writes there (saves, settings) readable for the shared folder's group too, so adb
+             * pull / a file manager can back them up - an app's default umask 077 left them -rw------- */
+            umask(0007);
+            SDL_snprintf(save_dir, sizeof save_dir, "%s/saves", ext);
+            SDL_snprintf(media_dir, sizeof media_dir, "%s/media", ext);
+            mkdir(media_dir, 0777);                  /* 0770 with the umask above: adb / file managers may write */
+            SDL_setenv_unsafe("ORTA_MEDIA_DIR", media_dir, 1);
+            for (i = 0; i < argc && n < 60; i++) args[n++] = argv[i];
+            args[n++] = "--save-dir";
+            args[n++] = save_dir;
+            args[n] = NULL;
+            __android_log_print(ANDROID_LOG_INFO, "ORTA", "[LOADER] saves + media in %s", ext);
+            __android_log_print(ANDROID_LOG_INFO, "ORTA", "[LOADER] starting the game from %s", lib);
+            return game_main(n, args);
+        }
+        __android_log_print(ANDROID_LOG_WARN, "ORTA", "[LOADER] no shared storage: saves + media stay internal");
+    }
     __android_log_print(ANDROID_LOG_INFO, "ORTA", "[LOADER] starting the game from %s", lib);
     return game_main(argc, argv);
 }

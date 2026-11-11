@@ -1046,8 +1046,8 @@ static const signed char k_opt_rows[OPT_V_N][9] = {
     {          0,  1,  2, -1, -1, -1, -1, -1, -1 },   /* CONTROLS */
     {         -1, -1, -1,  0,  1,  2,  3, -1, -1 },   /* SOUND: BGM / SE / STIMMEN, SPEAKERS (line 6, port value) */
 #ifdef __ANDROID__
-    /* Android: no DISPLAY MODE (the app is always full screen; maintainer 2026-11-11: "hat logischerweise keine
-     * Funktion") - line 1 hidden, the others move up a row */
+    /* Android: no DISPLAY MODE (the app is always full screen, the line has no function there) - line 1 hidden,
+     * the others move up a row */
     {          0, -1,  1,  2,  3,  4,  5,  6,  7 },   /* RECOMP OPTIONS without DISPLAY MODE */
 #else
     {          0,  1,  2,  3,  4,  5,  6,  7,  8 },   /* RECOMP OPTIONS: every stock line, value sprites parked */

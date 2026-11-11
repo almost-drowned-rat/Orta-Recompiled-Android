@@ -37,6 +37,7 @@ public class OrtaActivity extends SDLActivity {
         // turnip = the Mesa Turnip driver for Adreno GPUs without Vulkan 1.3 (vkshim/vulkan_orta.c)
         // (a Turnip driver is never shipped: the player picks one when the device needs it - importDriver)
         for (String a : new String[] { "python", "tools", "probe" }) extractOnce(a);
+        migrateUserFiles();
         super.onCreate(savedInstanceState);
         // forced landscape (maintainer 2026-11-11), both ways round; loader.c sets SDL's orientation hint to match
         setRequestedOrientation(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
@@ -139,7 +140,7 @@ public class OrtaActivity extends SDLActivity {
         return super.dispatchTouchEvent(e);
     }
 
-    private static final int PICK_DRIVER = 4711;
+    private static final int PICK_DRIVER = 4711, PICK_BOOT = 4712;
 
     /** The system file picker for a Turnip package, opened in Downloads (where a downloaded .adpkg.zip lands). */
     private void pickDriver() {
@@ -179,8 +180,120 @@ public class OrtaActivity extends SDLActivity {
         if (hasFocus) immersive();
     }
 
+    /** Where saves/ and media/ live (maintainer 2026-11-11): the app's folder in shared storage,
+     *  /storage/emulated/0/Android/data/<package>/files - reachable with adb push and file managers, no permission
+     *  needed (loader.c passes it to the game: --save-dir, ORTA_MEDIA_DIR). Internal storage when none is mounted. */
+    static File userDir(Context ctx) {
+        File ext = ctx.getExternalFilesDir(null);
+        return ext != null && android.os.Environment.MEDIA_MOUNTED.equals(android.os.Environment.getExternalStorageState(ext))
+            ? ext : ctx.getFilesDir();
+    }
+
+    static File bootVideo(Context ctx) { return new File(userDir(ctx), "media/boot.mpg"); }
+
+    private void pickBootVideo() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        i.setType("*/*");
+        i.putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI,
+                    android.net.Uri.parse("content://com.android.providers.downloads.documents/root/downloads"));
+        startActivityForResult(i, PICK_BOOT);
+    }
+
+    /** The picked file to media/boot.mpg (an MPEG-1 system stream starts with the pack header 00 00 01 BA); "" on
+     *  success, else a sentence for the player. */
+    private String importBootVideo(android.net.Uri u) {
+        File out = bootVideo(this), tmp = new File(out.getPath() + ".new");
+        out.getParentFile().mkdirs();
+        long n = 0;
+        try (InputStream in = getContentResolver().openInputStream(u); OutputStream o = new FileOutputStream(tmp)) {
+            if (in == null) return "The file could not be read.";
+            byte[] buf = new byte[1 << 20];
+            int r;
+            boolean first = true;
+            while ((r = in.read(buf)) > 0) {
+                if (first && (r < 4 || buf[0] != 0 || buf[1] != 0 || buf[2] != 1 || (buf[3] & 0xFF) != 0xBA)) {
+                    tmp.delete();
+                    return "This is not an MPEG-1 video (boot.mpg). Convert your video to MPEG-1 + MP2 first (see the README).";
+                }
+                first = false;
+                o.write(buf, 0, r);
+                n += r;
+            }
+        } catch (Exception e) {
+            tmp.delete();
+            return "The file could not be copied: " + e.getMessage();
+        }
+        if (out.exists()) out.delete();
+        if (!tmp.renameTo(out)) { tmp.delete(); return "The file could not be stored."; }
+        shareTree(out);
+        Log.i(TAG, "[MEDIA] boot.mpg imported: " + n + " bytes");
+        return "";
+    }
+
+    /** Once: saves/ and media/ from the internal storage (v1.1.0 and older) to userDir - copied, then the old copy
+     *  removed; never over files that are already there. */
+    private void migrateUserFiles() {
+        File to = userDir(this);
+        if (to.equals(getFilesDir())) return;
+        // made here, before the game, so a fresh install has them group-writable too (adb push of boot.mpg or a save
+        // backup into an empty folder - a fresh Odin 2 Portal install got drwxr-s--- from the game's own mkdir);
+        // shareTree on every start also fixes what the game created since (UDATA subfolders, new saves)
+        for (String name : new String[] { "saves", "media" }) {
+            File d = new File(to, name);
+            d.mkdirs();
+            shareTree(d);
+        }
+        for (String name : new String[] { "saves", "media" }) {
+            File src = new File(getFilesDir(), name), dst = new File(to, name);
+            if (!src.isDirectory() || (dst.exists() && dst.list() != null && dst.list().length > 0)) continue;
+            try {
+                int n = copyTree(src, dst);
+                deleteTree(src);
+                shareTree(dst);
+                Log.i(TAG, "[MIGRATE] " + name + ": " + n + " files -> " + dst);
+            } catch (IOException e) {
+                Log.e(TAG, "[MIGRATE] " + name + " failed (left where it was): " + e);
+            }
+        }
+    }
+
+    /** saves/ and media/ readable + writable for the shared folder's group (adb pull / push, file managers): the app
+     *  writes files -rw------- by default. Dirs 2770, files 0660. */
+    private static void shareTree(File f) {
+        try {
+            android.system.Os.chmod(f.getPath(), f.isDirectory() ? 02770 : 0660);
+        } catch (Exception ignored) { }
+        File[] kids = f.isDirectory() ? f.listFiles() : null;
+        if (kids != null) for (File k : kids) shareTree(k);
+    }
+
+    private static int copyTree(File from, File to) throws IOException {
+        if (from.isDirectory()) {
+            to.mkdirs();
+            int n = 0;
+            File[] kids = from.listFiles();
+            if (kids != null) for (File k : kids) n += copyTree(k, new File(to, k.getName()));
+            return n;
+        }
+        java.nio.file.Files.copy(from.toPath(), to.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        return 1;
+    }
+
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
+        if (request == PICK_BOOT) {
+            immersive();
+            if (result == RESULT_OK && data != null && data.getData() != null) {
+                String err = importBootVideo(data.getData());
+                new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                    .setTitle("Boot animation")
+                    .setMessage(err.isEmpty() ? "boot.mpg is in place. It plays at the next start when OPTIONS > RECOMP "
+                                                + "OPTIONS > BOOT ANIMATION is on." : err)
+                    .setPositiveButton("OK", null).show();
+            }
+            return;
+        }
         if (request == PICK_DRIVER) {
             immersive();
             if (result == RESULT_OK && data != null && data.getData() != null) {
@@ -208,15 +321,36 @@ public class OrtaActivity extends SDLActivity {
 
     private static String pct(float f) { return Math.round(f * 100) + " %"; }
 
-    /** The root page (maintainer 2026-11-11: move, resize, hide single buttons, touch buttons off (Odin 2 Portal),
-     *  a Turnip driver also on devices whose own driver has Vulkan 1.3, stick sensitivity). */
+    /** The BACK menu (maintainer 2026-11-11, his layout): Back to the game, Controls >, Graphics driver >,
+     *  Boot animation >, About and licences. */
     private SideMenu.Page rootPage() {
-        final String[] modes = { "Automatic", "Always", "Off" };
         return new SideMenu.Page() {
             public String title() { return "Panzer Dragoon Orta Recomp"; }
             public java.util.List<SideMenu.Item> items() {
                 java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
                 l.add(new SideMenu.Item("Back to the game") { @Override void run() { mMenu.close(); } });
+                l.add(new SideMenu.Item("Controls") { @Override void run() { mMenu.push(controlsPage()); } });
+                String drv = driverName(OrtaActivity.this);
+                l.add(new SideMenu.Item("Graphics driver: " + (drv != null ? drv : "system")) {
+                    @Override void run() { mMenu.push(driverPage()); }
+                });
+                l.add(new SideMenu.Item("Boot animation: " + (bootVideo(OrtaActivity.this).exists() ? "boot.mpg" : "none")) {
+                    @Override void run() { mMenu.push(bootPage()); }
+                });
+                l.add(new SideMenu.Item("About and licences") { @Override void run() { mMenu.push(aboutPage()); } });
+                return l;
+            }
+        };
+    }
+
+    /** Controls: the touch buttons (on / off / automatic, move, size, hide single ones, opacity, stick, reset) and the
+     *  connected controllers (touch buttons off for the Odin 2 Portal; stick sensitivity = a faster cursor). */
+    private SideMenu.Page controlsPage() {
+        final String[] modes = { "Automatic", "Always", "Off" };
+        return new SideMenu.Page() {
+            public String title() { return "Controls"; }
+            public java.util.List<SideMenu.Item> items() {
+                java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
                 l.add(new SideMenu.Item("Touch buttons") {     // Automatic = hidden while a gamepad is used
                     @Override String value() { return modes[mOverlay.getMode()]; }
                     @Override void step(int d) {
@@ -224,10 +358,6 @@ public class OrtaActivity extends SDLActivity {
                         mOverlay.setMode(m);
                         try { nativeTouchPadEnable(m != TouchOverlay.MODE_OFF); } catch (UnsatisfiedLinkError ignored) { }
                     }
-                });
-                String drv = driverName(OrtaActivity.this);
-                l.add(new SideMenu.Item("Graphics driver: " + (drv != null ? drv : "system")) {
-                    @Override void run() { mMenu.push(driverPage()); }
                 });
                 l.add(new SideMenu.Item("Controllers") { @Override void run() { mMenu.push(padPage()); } });
                 l.add(new SideMenu.Item("Move and resize touch buttons") {
@@ -237,21 +367,16 @@ public class OrtaActivity extends SDLActivity {
                     @Override String value() { return pct(mOverlay.getScale()); }
                     @Override void step(int d) { mOverlay.setScale(Math.max(0.5f, Math.min(1.5f, mOverlay.getScale() + 0.25f * d))); }
                 });
-                l.add(new SideMenu.Item("Hide single touch buttons") {
-                    @Override void run() { mMenu.push(hidePage()); }
-                });
+                l.add(new SideMenu.Item("Hide single touch buttons") { @Override void run() { mMenu.push(hidePage()); } });
                 l.add(new SideMenu.Item("Opacity") {           // 25-100 %
                     @Override String value() { return mOverlay.getOpacity() + " %"; }
                     @Override void step(int d) { mOverlay.setOpacity(Math.max(25, Math.min(100, mOverlay.getOpacity() + 25 * d))); }
                 });
-                l.add(new SideMenu.Item("Stick sensitivity") { // a faster cursor: full tilt with a shorter thumb move
+                l.add(new SideMenu.Item("Stick sensitivity") {
                     @Override String value() { return pct(mOverlay.getSensitivity()); }
                     @Override void step(int d) { mOverlay.setSensitivity(Math.max(1f, Math.min(3f, mOverlay.getSensitivity() + 0.5f * d))); }
                 });
-                l.add(new SideMenu.Item("Reset touch layout") {
-                    @Override void run() { mOverlay.resetLayout(); mMenu.refresh(); }
-                });
-                l.add(new SideMenu.Item("About and licences") { @Override void run() { mMenu.push(aboutPage()); } });
+                l.add(new SideMenu.Item("Reset touch layout") { @Override void run() { mOverlay.resetLayout(); mMenu.refresh(); } });
                 return l;
             }
         };
@@ -303,15 +428,33 @@ public class OrtaActivity extends SDLActivity {
             public java.util.List<SideMenu.Item> items() {
                 java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
                 final String drv = driverName(OrtaActivity.this);
-                l.add(new SideMenu.Item("In use: " + (drv != null ? drv : "the system driver")));
-                l.add(new SideMenu.Item("Choose a Turnip driver package (.adpkg.zip)...") {
+                l.add(new SideMenu.Item("System driver" + (drv == null ? "  (in use)" : "")) {
+                    @Override void run() { if (drv != null) { removeDriver(OrtaActivity.this); restartApp(); System.exit(0); } }
+                });
+                l.add(new SideMenu.Item("Change driver (Turnip .adpkg.zip)..." + (drv != null ? "  (in use: " + drv + ")" : "")) {
                     @Override void run() { mMenu.close(); pickDriver(); }
                 });
-                if (drv != null)
-                    l.add(new SideMenu.Item("Use the system driver again") {
-                        @Override void run() { removeDriver(OrtaActivity.this); restartApp(); System.exit(0); }
-                    });
                 l.add(new SideMenu.Item("(the game restarts to switch the driver)"));
+                return l;
+            }
+        };
+    }
+
+    /** Boot animation: media/boot.mpg (MPEG-1 + MP2) through the system picker - for players without adb / a file
+     *  manager; the in-game OPTIONS > RECOMP OPTIONS > BOOT ANIMATION turns it on / off. */
+    private SideMenu.Page bootPage() {
+        return new SideMenu.Page() {
+            public String title() { return "Boot animation"; }
+            public java.util.List<SideMenu.Item> items() {
+                java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
+                final File f = bootVideo(OrtaActivity.this);
+                // the player's choice, like the graphics driver: none, or his own boot.mpg
+                l.add(new SideMenu.Item("None" + (f.exists() ? "" : "  (in use)")) {
+                    @Override void run() { if (f.exists()) { f.delete(); mMenu.refresh(); } }
+                });
+                l.add(new SideMenu.Item("Import file..." + (f.exists() ? "  (in use: boot.mpg, " + (f.length() >> 20) + " MB)" : "")) {
+                    @Override void run() { mMenu.close(); pickBootVideo(); }
+                });
                 return l;
             }
         };

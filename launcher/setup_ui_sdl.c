@@ -1,7 +1,6 @@
 /* setup_ui_sdl.c - the toolkit's progress UI (game_setup_ui.h: xr_setup_ui_*) for the Linux and Android launchers,
- * in the look of the Windows setup window (launcher/setup_win32.c; maintainer 2026-11-11: "das Fortschrittsfenster
- * wie bei der Windows-Version, den Balken in der Mitte des Bildschirms", then "mache das auch für die Linux AppImage
- * Installer"): a Windows 95 style dialog - grey #C0C0C0 face, 3D bevels, a navy title bar with white bold text, a
+ * in the look of the Windows setup window (launcher/setup_win32.c; the progress bar in the middle of the screen, for
+ * the Linux AppImage too): a Windows 95 style dialog - grey #C0C0C0 face, 3D bevels, a navy title bar with white bold text, a
  * blocky navy progress bar in a sunken groove. Drawn with the SDL renderer (SDL_RenderDebugText, no font library;
  * MS Sans Serif is not shipped). Only the style; no Microsoft graphics. The close box cancels (as on Windows).
  *   Android: full screen, the dialog centred on black, scaled to the screen (libmain.so, packaging/android).

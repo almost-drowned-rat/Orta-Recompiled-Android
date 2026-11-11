@@ -5,8 +5,8 @@ This download contains no game data, no game code and no keys. You need your own
 
 AI disclosure:  AI assistance yes (Claude Code by Anthropic).
 
-The port is playable (tested through episode 4) but not finished yet. Expect bugs I have not found myself - please report them
-as issues on GitHub, I will try to fix every reported bug as fast as I can.
+The port is playable from the first episode to the end credits - I played it through myself. If you still find a bug,
+please report it as an issue on GitHub, I will try to fix every reported bug as fast as I can.
 
 Start:
   1. Unpack this zip (keep the tools\ folder next to the exe) and start 'Panzer Dragoon Orta Recomp.exe'.
