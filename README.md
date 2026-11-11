@@ -36,7 +36,7 @@ Tested on:
 |---|---|---|---|
 | Samsung Galaxy S23 | Adreno 740 | system (Vulkan 1.3) | runs, ~60 fps, picture + sound + touch |
 | Samsung Galaxy Tab S8 | Adreno 730 | Turnip T30 (system driver: Vulkan 1.1 only) | runs, ~60 fps |
-| AYN Odin 2 Portal | Adreno 740 | system | not tested yet |
+| AYN Odin 2 Portal | Adreno 740 | **Turnip T30 recommended** (the system driver, Vulkan 1.3.128 on Android 13, shows graphics glitches) | runs, borderless, built-in controls work |
 
 ## Requirements
 
@@ -65,9 +65,9 @@ Tested on:
 - **Gamepads** work out of the box. With the touch buttons on *Automatic* they hide while a gamepad is used. Every
   controller plays as player 1 (the game is single-player), so a handheld's own controls, a touch pad and an external
   pad all work at the same time.
-- **BACK** opens a menu that slides in from the left: touch buttons on / off / automatic, move and resize them,
-  button size, hide single buttons, opacity, stick sensitivity, the connected controllers and the graphics driver.
-  The game keeps running behind it.
+- **BACK** opens a menu that slides in from the left: the graphics driver (switch to a Turnip package or back to the
+  system driver at any time), the connected controllers, touch buttons on / off / automatic, move and resize them,
+  button size, hide single buttons, opacity, stick sensitivity, and the licences. The game keeps running behind it.
 
 ## Building
 
