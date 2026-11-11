@@ -33,8 +33,8 @@ is translated and compiled **on your device** once, and then it plays - with tou
 
 ## Status
 
-**Source only for now.** A ready-to-install APK will follow here as a release once the matching toolkit sources are
-published and the third-party licence texts are inside the app.
+**v1.1.0 (experimental):** download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
+and install it (Android 10+, arm64). It is signed with the project's own key - every later update installs over it.
 
 Tested on:
 
