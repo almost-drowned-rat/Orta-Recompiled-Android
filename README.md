@@ -19,6 +19,12 @@ is translated and compiled **on your device** once, and then it plays - with tou
 > **I am sorry** for everyone whose device has no **Vulkan 1.3** and cannot use a **Turnip** driver either: the game
 > needs one of the two, and on those devices it will not run. There is nothing I can do about that from the app's side.
 
+> **A Turnip driver is required.** Use the app with a **Turnip** driver (Mesa's open Vulkan driver for Adreno GPUs),
+> not with the phone's own driver: the system drivers showed graphics glitches or were too old. Tested with
+> **purple-turnip T30** - [`turnip_mrpurple_T30-toasted.adpkg.zip`](https://github.com/MrPurple666/purple-turnip/releases/tag/vturnip_mrpurple_T30-toasted.adpkg)
+> (Mesa Turnip 26.3.0, Vulkan 1.4.359, by MrPurple666). Download that file to your device and choose it in the app
+> (see *How it works*). The driver is not part of the app.
+
 > **Only tested on Snapdragon.** I only have Android devices with a **Snapdragon 8 Gen 1** and a **Snapdragon 8 Gen 2**
 > (Adreno 730 / 740), so I cannot test any other chip (Exynos, Tensor, MediaTek / Mali, older Snapdragons). And since
 > this is just a small experiment, I will probably not put as much work into it as into the other ports.
@@ -32,25 +38,28 @@ published and the third-party licence texts are inside the app.
 
 Tested on:
 
-| Device | GPU | Driver | Result |
+| Device | Chip / GPU | Driver | Result |
 |---|---|---|---|
-| Samsung Galaxy S23 | Adreno 740 | system (Vulkan 1.3) | runs, ~60 fps, picture + sound + touch |
-| Samsung Galaxy Tab S8 | Adreno 730 | Turnip T30 (system driver: Vulkan 1.1 only) | runs, ~60 fps |
-| AYN Odin 2 Portal | Adreno 740 | **Turnip T30 recommended** (the system driver, Vulkan 1.3.128 on Android 13, shows graphics glitches) | runs, borderless, built-in controls work |
+| AYN Odin 2 Portal | Snapdragon 8 Gen 2 / Adreno 740 | purple-turnip T30 | runs, borderless, built-in controls work (the system driver, Vulkan 1.3.128 on Android 13: graphics glitches) |
+| Samsung Galaxy Tab S8 | Snapdragon 8 Gen 1 / Adreno 730 | purple-turnip T30 | runs, ~60 fps (the system driver offers only Vulkan 1.1) |
+| Samsung Galaxy S23 | Snapdragon 8 Gen 2 / Adreno 740 | system driver (Vulkan 1.3) | ran in the first tests, ~60 fps; use Turnip T30 here too |
 
 ## Requirements
 
 - Android 10 or newer, **arm64** (64-bit ARM)
-- **Vulkan 1.3**, or an Adreno GPU that can run a **Turnip** driver (Mesa, e.g.
-  [purple-turnip](https://github.com/MrPurple666/purple-turnip/releases)). The app checks this at the first start and
-  asks for a driver package (`.adpkg.zip`) when the system driver is too old. No driver is shipped with the app.
+- An **Adreno GPU** and a **Turnip driver package** (`.adpkg.zip`) - **required**; tested with purple-turnip T30
+  (link above). Without Turnip the game needs a system driver with **Vulkan 1.3**, and even then it may show
+  graphics glitches. No driver is shipped with the app.
 - Your own **Panzer Dragoon Orta (Europe)** disc image (`.iso`)
 - Free storage: about **7 GB** during the first start (the image is copied in and extracted), about **3.5 GB** after it
 
 ## How it works
 
 1. Install the app and start it.
-2. On Adreno devices without Vulkan 1.3: choose a Turnip driver package when asked.
+2. Choose the Turnip driver package (`turnip_mrpurple_T30-toasted.adpkg.zip` from your Download folder): the app asks
+   for it on devices whose own driver is too old; on all others open **BACK > Graphics driver > Choose a Turnip
+   driver package** once the game runs. The app restarts with Turnip. You can switch back to the system driver there
+   at any time.
 3. Choose your disc image in the system file picker. It is copied into the app and extracted (the copy is deleted
    afterwards; your own file stays where it is).
 4. The game's code is translated and compiled on the device - **once**, about 8-10 minutes. Keep the screen on.
