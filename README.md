@@ -19,6 +19,10 @@ is translated and compiled **on your device** once, and then it plays - with tou
 > **I am sorry** for everyone whose device has no **Vulkan 1.3** and cannot use a **Turnip** driver either: the game
 > needs one of the two, and on those devices it will not run. There is nothing I can do about that from the app's side.
 
+> **Only tested on Snapdragon.** I only have Android devices with a **Snapdragon 8 Gen 1** and a **Snapdragon 8 Gen 2**
+> (Adreno 730 / 740), so I cannot test any other chip (Exynos, Tensor, MediaTek / Mali, older Snapdragons). And since
+> this is just a small experiment, I will probably not put as much work into it as into the other ports.
+
 ---
 
 ## Status
