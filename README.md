@@ -33,7 +33,7 @@ is translated and compiled **on your device** once, and then it plays - with tou
 
 ## Status
 
-**v0.1.0 (experimental)** - based on **v1.1 of the Windows / Linux port**
+**v0.1.1 (experimental)** - based on **v1.1.1 of the Windows / Linux port**
 ([Orta-Recompiled](https://github.com/almost-drowned-rat/Orta-Recompiled)). The Android port has its own version
 numbers. Download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
 and install it (Android 10+, arm64). It is signed with the project's own key - every later update installs over it.
@@ -43,7 +43,7 @@ Tested on:
 | Device | Chip / GPU | Driver | Result |
 |---|---|---|---|
 | AYN Odin 2 Portal | Snapdragon 8 Gen 2 / Adreno 740 | purple-turnip T30 | runs, borderless, built-in controls work (the system driver, Vulkan 1.3.128 on Android 13: graphics glitches) |
-| Samsung Galaxy Tab S8 | Snapdragon 8 Gen 1 / Adreno 730 | purple-turnip T30 | runs, ~60 fps (the system driver offers only Vulkan 1.1) |
+| Samsung Galaxy Tab S8 | Snapdragon 8 Gen 1 / Adreno 730 | purple-turnip T30 | v0.1.1: runs, 60 fps with MSAA 4x and bloom in the title's real-time demo (the system driver offers only Vulkan 1.1) |
 | Samsung Galaxy S23 | Snapdragon 8 Gen 2 / Adreno 740 | system driver (Vulkan 1.3) | ran in the first tests, ~60 fps; use Turnip T30 here too |
 
 ## Requirements
@@ -107,7 +107,7 @@ OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Boot animation > None** remo
 
 The APK is built on Linux with `tools/build_android.sh` (Android SDK 36, NDK r30, JDK 21, Gradle 9.9.1; the script
 lists every path it reads as environment variables). It needs the toolkit,
-[xboxrecomp-option-c **v1.1.0**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.1.0) (the
+[xboxrecomp-option-c **v1.1.1**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.1.1) (the
 exact toolkit source inside the app), and its Android runtime SDK and on-device compiler, made by the toolkit's
 `tools/android` scripts (Linux and Android changes: its `docs/option_c.md`, section 7). The release APK is signed with
 the project's own release key; `tools/build_android.sh --release` expects it outside the repository.
