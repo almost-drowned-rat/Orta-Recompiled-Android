@@ -269,6 +269,10 @@ int main(int argc, char **argv)
         __android_log_print(ANDROID_LOG_ERROR, "ORTA", "[LOADER] orta_game_main missing in %s", lib);
         return 1;
     }
+    {   /* touch aiming (src/recomp_manual.c orta_touch_aim; an older game library has none: the overlay keeps its
+         * normal layout) */
+        touchpad_set_aim((int (*)(int, float, float, float, float))dlsym(h, "orta_touch_aim"));
+    }
     {   /* external pads before built-in / touch ones (toolkit agent-l/pads; an older game library has no such call) */
         void (*set_prio)(int (*)(const char *)) = (void (*)(int (*)(const char *)))dlsym(h, "xbox_InputSetPadPriority");
         if (set_prio) set_prio(touchpad_pad_priority);

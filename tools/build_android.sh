@@ -173,6 +173,9 @@ cfgT='{TOOLS}/config/game.toml'
 printf 'format\t2\nclang\t{NATIVE}/libclang_exe.so\npython\t{NATIVE}/libpython_exe.so\n' > "$toolsA/toolchain.txt"
 rel=${ORTA_RELEASE_NAME:-android-dev-$(git -C "$repo" rev-parse --short HEAD)}   # a public APK: ORTA_RELEASE_NAME=<version>
 echo "$rel" > "$toolsA/release.txt"
+# the shipped pipeline list (keys only; src/main.c loads <data>/pipelist_orta_pal.bin): the toolkit launcher copies
+# tools/data/* into data/ when missing or the release changed (option-c dd90603; O 2026-11-16)
+mkdir -p "$toolsA/data"; cp "$repo/assets/pipelist_orta_pal.bin" "$toolsA/data/"
 # agent B's device tests (MMIO decode / trap, bionic compat, stack dump)
 for t in libmmio_decode_a64_exe.so libmmio_trap_exe.so libcompat_bionic_exe.so libhost_stack_dump_exe.so; do
     [ -f "$andb/device_tests/$t" ] && cp -f "$andb/device_tests/$t" "$pre/$t"

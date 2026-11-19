@@ -155,3 +155,22 @@ int touchpad_pad_priority(const char *name)
     (*env)->DeleteLocalRef(env, c);
     return prio;
 }
+
+/* Touch aiming (agent L 2026-11-13): the game library's orta_touch_aim (src/recomp_manual.c), handed over by loader.c
+ * after dlopen. TouchOverlay: nativeTouchAim(down, x, y, w, h) on every aiming touch (down 1 / move 1 / up 0, view
+ * pixels), nativeTouchAim(-1, ...) to ask whether the game is in flight (the aiming layout shows only then). Returns
+ * 0 without the call (older game library, or before the game). */
+static int (*s_aim)(int, float, float, float, float);
+
+void touchpad_set_aim(int (*fn)(int, float, float, float, float))
+{
+    s_aim = fn;
+    __android_log_print(ANDROID_LOG_INFO, "ORTA", "[TOUCH] touch aiming %s", fn ? "available" : "not in this game library");
+}
+
+JNIEXPORT jint JNICALL Java_io_github_almostdrownedrat_orta_TouchOverlay_nativeTouchAim(JNIEnv *env, jclass c,
+    jint down, jfloat x, jfloat y, jfloat w, jfloat h)
+{
+    (void)env; (void)c;
+    return s_aim ? s_aim(down, x, y, w, h) : 0;
+}

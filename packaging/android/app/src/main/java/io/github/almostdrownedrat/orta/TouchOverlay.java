@@ -35,6 +35,53 @@ public class TouchOverlay extends View {
     static final int MODE_AUTO = 0, MODE_ALWAYS = 1, MODE_OFF = 2;
 
     static native void nativeTouchPad(int buttons, float lx, float ly, float lt, float rt, float rx, float ry);
+    static native int nativeTouchAim(int down, float x, float y, float w, float h);
+
+    // Touch aiming (agent L 2026-11-13, maintainer's layout): in flight a finger anywhere off the buttons puts the
+    // reticle under it and holds A (drag = lock-on, lift = fire, tap = one shot); only these buttons stay: boost X,
+    // brake B, form Y, the view triggers LT / RT, berserk WHITE, START. Outside flight (menus, pause, cut scenes;
+    // the game says so - orta_touch_aim) the normal layout with the stick is back.
+    private static final int[] AIM_SET = { X, B, Y, LT, RT, WHITE, START };
+    private boolean aimLayout, aimLive;
+    private int aimPointer = -1;
+    private final Runnable aimPoll = new Runnable() {
+        @Override public void run() {
+            boolean live = false;
+            if (aimLayout && gameRunning) {
+                try { live = nativeTouchAim(-1, 0, 0, 0, 0) != 0; } catch (UnsatisfiedLinkError ignored) { }
+            }
+            if (live != aimLive && aimPointer < 0) {          // never under a finger that is aiming
+                aimLive = live; release();
+                android.util.Log.i("ORTA", "[TOUCH] aiming layout " + (live ? "on (in flight)" : "off"));
+            }
+            postDelayed(this, 250);
+        }
+    };
+    private boolean aiming() { return aimLayout && aimLive && !editing; }
+    /** the aiming layout outside flight (menus, pause, score screen; maintainer 2026-11-13): no stick - a swipe
+     *  anywhere off the buttons is one D-pad step (a long drag: one step per 48 dp) */
+    private boolean swiping() { return aimLayout && !aimLive && gameRunning && !editing; }
+    private int swipePointer = -1, pulseBit = -1;
+    private float swipeX, swipeY;
+    private final Runnable pulseEnd = () -> { pulseBit = -1; send(); invalidate(); };
+    private void swipeMove(float x, float y) {
+        float dx = x - swipeX, dy = y - swipeY, step = 48 * dp;
+        if (Math.max(Math.abs(dx), Math.abs(dy)) < step) return;
+        int bit = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? RIGHT : LEFT) : (dy > 0 ? DOWN : UP);
+        swipeX = x; swipeY = y;
+        removeCallbacks(pulseEnd);
+        pulseBit = bit;
+        send();
+        postDelayed(pulseEnd, 120);                      // a press the game's menus see as one step
+    }
+    private static boolean inAimSet(int i) { for (int a : AIM_SET) if (a == i) return true; return false; }
+    /** hidden for play: the player's own choice, and in the aiming layout everything outside its set */
+    private boolean off(int i) {
+        if (swiping() && (i == STICK || i == RSTICK)) return true;
+        return hidden[i] || (aiming() && !inAimSet(i));
+    }
+    boolean getAimLayout() { return aimLayout; }
+    void setAimLayout(boolean on) { aimLayout = on; save(); release(); }
 
     private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG), line = new Paint(Paint.ANTI_ALIAS_FLAG),
                         text = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -95,7 +142,9 @@ public class TouchOverlay extends View {
         sens = prefs.getFloat("sens", 1f);
         mode = prefs.getInt("mode", MODE_AUTO);
         opacity = prefs.getInt("opacity", 50);
+        aimLayout = prefs.getBoolean("aimLayout", false);
         updateVisibility();
+        post(aimPoll);
     }
 
     void save() {
@@ -103,7 +152,7 @@ public class TouchOverlay extends View {
         for (int i = 0; i < N; i++) {
             e.putFloat("x" + i, cx[i]); e.putFloat("y" + i, cy[i]); e.putBoolean("h" + i, hidden[i]); e.putFloat("s" + i, sc[i]);
         }
-        e.putFloat("gscale", gscale).putFloat("sens", sens).putInt("mode", mode).putInt("opacity", opacity).apply();
+        e.putFloat("gscale", gscale).putFloat("sens", sens).putInt("mode", mode).putInt("opacity", opacity).putBoolean("aimLayout", aimLayout).apply();
     }
 
     void resetLayout() {
@@ -163,13 +212,13 @@ public class TouchOverlay extends View {
 
     private int hit(float x, float y) {
         for (int i = 0; i < N; i++) {
-            if (hidden[i] && !editing) continue;
+            if (off(i) && !editing) continue;
             if (i == STICK) continue;
             float dx = x - px(i), dy = y - py(i), rr = rad(i) + (i == RSTICK ? 0 : 12 * dp);
             if (dx * dx + dy * dy <= rr * rr) return i;
         }
         // the stick zone: the left 40 % of the screen, lower 75 % (floating), or its rest place in edit mode
-        if (!hidden[STICK] || editing) {
+        if ((!off(STICK) && !aiming() && !swiping()) || editing) {
             if (editing) {
                 float dx = x - px(STICK), dy = y - py(STICK), rr = rad(STICK);
                 if (dx * dx + dy * dy <= rr * rr) return STICK;
@@ -189,6 +238,15 @@ public class TouchOverlay extends View {
             case MotionEvent.ACTION_DOWN:
             case MotionEvent.ACTION_POINTER_DOWN: {
                 int c = hit(e.getX(idx), e.getY(idx));
+                if (c < 0 && swiping() && swipePointer < 0) {       // menus: a swipe = a D-pad step
+                    swipePointer = id; swipeX = e.getX(idx); swipeY = e.getY(idx);
+                    break;
+                }
+                if (c < 0 && aiming() && aimPointer < 0) {          // the reticle under the finger, A held
+                    aimPointer = id;
+                    aimAt(1, e.getX(idx), e.getY(idx));
+                    break;
+                }
                 if (c < 0) return a != MotionEvent.ACTION_DOWN;    // not ours: SDL gets the gesture
                 owner[c] = id;
                 if (c == STICK) { stickOx = e.getX(idx); stickOy = e.getY(idx); stickX = 0; stickY = 0; }
@@ -205,11 +263,18 @@ public class TouchOverlay extends View {
                         stickX = dx; stickY = dy;
                     }
                     if (owner[RSTICK] == e.getPointerId(p)) moveRStick(e.getX(p), e.getY(p));
+                    if (aimPointer == e.getPointerId(p)) aimAt(1, e.getX(p), e.getY(p));
+                    if (swipePointer == e.getPointerId(p)) swipeMove(e.getX(p), e.getY(p));
                 }
                 break;
             case MotionEvent.ACTION_UP:
             case MotionEvent.ACTION_POINTER_UP:
             case MotionEvent.ACTION_CANCEL:
+                if (swipePointer >= 0 && (swipePointer == id || a == MotionEvent.ACTION_CANCEL)) swipePointer = -1;
+                if (aimPointer >= 0 && (aimPointer == id || a == MotionEvent.ACTION_CANCEL)) {
+                    aimPointer = -1;
+                    aimAt(0, e.getX(idx), e.getY(idx));
+                }
                 for (int i = 0; i < N; i++) {
                     if (owner[i] == id || a == MotionEvent.ACTION_CANCEL) {
                         owner[i] = -1;
@@ -251,8 +316,14 @@ public class TouchOverlay extends View {
         return true;
     }
 
+    private void aimAt(int down, float x, float y) {
+        try { nativeTouchAim(down, x, y, getWidth(), getHeight()); } catch (UnsatisfiedLinkError ignored) { }
+    }
+
     void release() {                                   // also SideMenu opening: no button stays held
         for (int i = 0; i < N; i++) owner[i] = -1;
+        if (aimPointer >= 0) { aimPointer = -1; aimAt(0, 0, 0); }
+        swipePointer = -1;
         stickX = stickY = rstickX = rstickY = 0;
         send();
         invalidate();
@@ -270,6 +341,8 @@ public class TouchOverlay extends View {
         int b = 0;
         for (int i = 0; i < N; i++)
             if (owner[i] >= 0 && i != LT && i != RT && i != STICK && i != RSTICK) b |= 1 << i;
+        if (aimPointer >= 0) b |= 1 << A;                // the aiming finger holds A
+        if (pulseBit >= 0) b |= 1 << pulseBit;           // a menu swipe's D-pad step
         try {
             nativeTouchPad(b, stickX, stickY, owner[LT] >= 0 ? 1f : 0f, owner[RT] >= 0 ? 1f : 0f, rstickX, rstickY);
         } catch (UnsatisfiedLinkError ignored) { /* libmain not loaded yet */ }
@@ -281,7 +354,7 @@ public class TouchOverlay extends View {
         text.setTextSize(15 * dp);
         line.setStrokeWidth(2 * dp);
         for (int i = 0; i < N; i++) {
-            if (hidden[i] && !editing) continue;
+            if (off(i) && !editing) continue;
             float x = px(i), y = py(i), rr = rad(i);
             boolean down = owner[i] >= 0;
             if (i == STICK) {

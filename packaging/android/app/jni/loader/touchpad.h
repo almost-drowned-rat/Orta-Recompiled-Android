@@ -8,4 +8,6 @@ void touchpad_init(void);
 /* external pads 10, built-in 5, the touch pad 0 - for the toolkit's xbox_InputSetPadPriority */
 int touchpad_pad_priority(const char *name);
 
+void touchpad_set_aim(int (*fn)(int, float, float, float, float));
+
 #endif

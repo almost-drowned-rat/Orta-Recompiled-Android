@@ -33,7 +33,7 @@ is translated and compiled **on your device** once, and then it plays - with tou
 
 ## Status
 
-**v0.1.1 (experimental)** - based on **v1.1.1 of the Windows / Linux port**
+**v0.2.0 (experimental)** - based on **v1.2.2 of the Windows / Linux port**
 ([Orta-Recompiled](https://github.com/almost-drowned-rat/Orta-Recompiled)). The Android port has its own version
 numbers. Download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
 and install it (Android 10+, arm64). It is signed with the project's own key - every later update installs over it.
@@ -44,11 +44,11 @@ Tested on:
 |---|---|---|---|
 | AYN Odin 2 Portal | Snapdragon 8 Gen 2 / Adreno 740 | purple-turnip T30 | runs, borderless, built-in controls work (the system driver, Vulkan 1.3.128 on Android 13: graphics glitches) |
 | Samsung Galaxy Tab S8 | Snapdragon 8 Gen 1 / Adreno 730 | purple-turnip T30 | v0.1.1: runs, 60 fps with MSAA 4x and bloom in the title's real-time demo (the system driver offers only Vulkan 1.1) |
-| Samsung Galaxy S23 | Snapdragon 8 Gen 2 / Adreno 740 | system driver (Vulkan 1.3) | ran in the first tests, ~60 fps; use Turnip T30 here too |
+| Samsung Galaxy S23 | Snapdragon 8 Gen 2 / Adreno 740 | purple-turnip T30 | v0.2.0: runs, touch aiming tested (Android 17; the system driver, Vulkan 1.3.128, runs too) |
 
 ## Requirements
 
-- Android 10 or newer, **arm64** (64-bit ARM)
+- Android 10 or newer, **arm64** (64-bit ARM) - tested on Android 13 to 17
 - An **Adreno GPU** and a **Turnip driver package** (`.adpkg.zip`) - **required**; tested with purple-turnip T30
   (link above). Without Turnip the game needs a system driver with **Vulkan 1.3**, and even then it may show
   graphics glitches. No driver is shipped with the app.
@@ -64,7 +64,8 @@ Tested on:
    restarts with Turnip. **BACK > Graphics driver > System driver** goes back at any time.
 3. Choose your disc image in the system file picker. It is copied into the app and extracted (the copy is deleted
    afterwards; your own file stays where it is).
-4. The game's code is translated and compiled on the device - **once**, about 8-10 minutes. Keep the screen on.
+4. The game's code is translated and compiled on the device - **once**, about 7-10 minutes (and once more after an
+   update). Keep the app open; the screen stays on by itself.
 5. The game starts. Every later start goes straight into the game.
 
 **Frame rate at first:** while you play, the frame rate drops now and then at the beginning and gets better the longer
@@ -93,6 +94,10 @@ OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Boot animation > None** remo
 
 - **Touch:** a floating stick on the left, A B X Y, WHITE / BLACK, LT / RT and START. BACK, L3 / R3, the D-pad and
   a right stick exist too, hidden by default.
+- **Touch aiming** (BACK > Controls > Touch layout: *Touch aiming*): in flight your finger is the reticle - touch to
+  aim (A held), drag over enemies to lock on, lift to fire. The view turns only with LT / RT; swipes up / down / left
+  / right move through the menus. The aiming layout shows only X (boost), B (brake), Y (form), LT / RT, WHITE
+  (berserk) and START; outside flight the normal layout comes back.
 - **Gamepads** work out of the box. With the touch buttons on *Automatic* they hide while a gamepad is used. Every
   controller plays as player 1 (the game is single-player), so a handheld's own controls, a touch pad and an external
   pad all work at the same time.
@@ -101,13 +106,29 @@ OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Boot animation > None** remo
     button size, hide single buttons, opacity, stick sensitivity, reset the layout
   - **Graphics driver** - the system driver, or change to a Turnip package; switch at any time
   - **Boot animation** - none, or import your boot.mpg
+  - **Saves** - export your saves as one zip, or import such a zip (your current saves are kept as a backup)
+  - **Export log** - the log of one of the last 5 starts, or of all of them, to a file you choose - please attach it
+    to a bug report
   - **About and licences**
+
+## Troubleshooting
+
+| What you see | Why | What to do |
+|---|---|---|
+| "App not installed" when installing | Android older than 10, or a 32-bit / x86 device | the app needs Android 10+ on arm64 - it cannot run on this device |
+| "Graphics driver needed" at the first start | an Adreno GPU whose own driver offers less than Vulkan 1.3 | choose a Turnip package (link above) |
+| "I am sorry - ... offers only Vulkan ..." at the first start | no Adreno GPU (Mali, Xclipse, PowerVR, ...) and less than Vulkan 1.3 | Turnip exists only for Adreno - the game cannot run on this device |
+| "Turnip drivers work only on Adreno GPUs" | a Turnip package chosen on a device without an Adreno GPU | keep the system driver |
+| "Not enough storage" after choosing the image | the first start needs about twice the image's size free | free some storage and choose the image again |
+| The progress bar runs for minutes | the game is translated and compiled on the device (first start, after an update) | wait - about 7-10 minutes |
+| Black screen, then the app closes | not known yet | **BACK > Export log**, choose the run before "this run", and attach the file to an issue together with your device |
+| Graphics glitches | the phone's own driver | use Turnip T30 (BACK > Graphics driver) |
 
 ## Building
 
 The APK is built on Linux with `tools/build_android.sh` (Android SDK 36, NDK r30, JDK 21, Gradle 9.9.1; the script
 lists every path it reads as environment variables). It needs the toolkit,
-[xboxrecomp-option-c **v1.1.1**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.1.1) (the
+[xboxrecomp-option-c **v1.2.1**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.2.1) (the
 exact toolkit source inside the app), and its Android runtime SDK and on-device compiler, made by the toolkit's
 `tools/android` scripts (Linux and Android changes: its `docs/option_c.md`, section 7). The release APK is signed with
 the project's own release key; `tools/build_android.sh --release` expects it outside the repository.
