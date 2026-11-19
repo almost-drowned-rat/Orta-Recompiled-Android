@@ -1,0 +1,33 @@
+{
+  "$schema": "https://recomp.fyi/schema/v1.json",
+  "game": "Panzer Dragoon Orta",
+  "wikidata": "Q335056",
+  "system": "Xbox",
+  "type": "recomp",
+  "project": "Orta Recompiled - Android",
+  "status": "released",
+  "targets": [
+    "Android"
+  ],
+  "original": {
+    "region": "Europe"
+  },
+  "toolchain": "xboxrecomp",
+  "maintainers": [
+    {
+      "name": "almost-drowned-rat",
+      "link": "https://github.com/almost-drowned-rat"
+    }
+  ],
+  "links": [
+    {
+      "label": "Orta Recompiled (Windows / Linux)",
+      "url": "https://github.com/almost-drowned-rat/Orta-Recompiled"
+    },
+    {
+      "label": "xboxrecomp toolkit (option-c)",
+      "url": "https://github.com/almost-drowned-rat/xboxrecomp-option-c"
+    }
+  ],
+  "notes": "Android version of Orta Recompiled (PAL only). Made with AI assistance."
+}
