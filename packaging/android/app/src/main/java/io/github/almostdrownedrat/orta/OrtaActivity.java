@@ -40,6 +40,7 @@ public class OrtaActivity extends SDLActivity {
         for (String a : new String[] { "python", "tools", "probe" }) newTools |= extractOnce(a) && a.equals("tools");
         newTools &= update;
         migrateUserFiles();
+        migrateDriver();
         applyPendingSaves();
         super.onCreate(savedInstanceState);
         // forced landscape (maintainer 2026-11-11), both ways round; loader.c sets SDL's orientation hint to match
@@ -74,7 +75,7 @@ public class OrtaActivity extends SDLActivity {
         mLayout.addView(mMenu, new android.widget.RelativeLayout.LayoutParams(
             android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
         // a new APK (or the first install): the game is built again on this device before it starts
-        if (newTools) buildHint(this);
+        // (an update: the setup screen shows the rebuild itself - OrtaSetup)
     }
 
     /** The first start after an install or update translates and compiles the game on the device - several minutes
@@ -148,7 +149,7 @@ public class OrtaActivity extends SDLActivity {
         }
     }
 
-    private static String readText(File f) {
+    static String readText(File f) {
         try { return new String(java.nio.file.Files.readAllBytes(f.toPath())).trim(); } catch (IOException e) { return ""; }
     }
 
@@ -240,6 +241,12 @@ public class OrtaActivity extends SDLActivity {
     public boolean dispatchKeyEvent(android.view.KeyEvent e) {
         // the open menu takes every key (pad / keyboard), the game sees none; BACK itself comes through
         // OnBackInvokedCallback (onBackMenu) on Android 13+, as a key only on older ones
+        if (OrtaSetup.visible()) {           // the setup screen takes every key (pad / keyboard)
+            if (e.getKeyCode() == android.view.KeyEvent.KEYCODE_BACK && android.os.Build.VERSION.SDK_INT >= 33)
+                return super.dispatchKeyEvent(e);
+            if (OrtaSetup.key(e)) return true;
+            return super.dispatchKeyEvent(e);
+        }
         if (mMenu != null && mMenu.isOpen()) {
             if (e.getKeyCode() == android.view.KeyEvent.KEYCODE_BACK && android.os.Build.VERSION.SDK_INT >= 33)
                 return super.dispatchKeyEvent(e);
@@ -411,6 +418,7 @@ public class OrtaActivity extends SDLActivity {
 
     @Override
     protected void onActivityResult(int request, int result, Intent data) {
+        if (OrtaSetup.onPicked(request, result, data)) { immersive(); return; }
         if (request == PICK_BOOT) {
             immersive();
             if (result == RESULT_OK && data != null && data.getData() != null) {
@@ -454,10 +462,16 @@ public class OrtaActivity extends SDLActivity {
         if (request == PICK_DRIVER) {
             immersive();
             if (result == RESULT_OK && data != null && data.getData() != null) {
-                String err = importDriver(data.getData().toString());
-                if (err.isEmpty()) { restartApp(); System.exit(0); }
+                final String[] slot = { null };
+                String err = importDriver(this, data.getData(), slot);
+                if (!err.isEmpty()) { message("Graphics driver", err); return; }
                 new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                    .setTitle("Graphics driver").setMessage(err).setPositiveButton("OK", null).show();
+                    .setTitle("Graphics driver")
+                    .setMessage(keptDriverName(new File(driversDir(this), slot[0])) + " is added. Use it now? The game "
+                                + "restarts to switch the driver.")
+                    .setPositiveButton("Use now", (dlg, w) -> switchToKept(slot[0]))
+                    .setNegativeButton("Later", null)
+                    .show();
             }
             return;
         }
@@ -468,6 +482,7 @@ public class OrtaActivity extends SDLActivity {
      *  keeps running behind it - freezing is a later toolkit item, and no START is sent). BACK in the open menu goes
      *  back one level / closes it; in the touch layout editor it ends editing. */
     private void onBackMenu() {
+        if (OrtaSetup.visible()) { OrtaSetup.back(); return; }     // the setup screen: its own BACK (ask / quit)
         if (mOverlay == null || !mOverlay.isGameRunning()) return;     // the installer: BACK does nothing
         if (mMenu.isOpen()) { mMenu.back(); return; }
         if (mOverlay.isEditing()) { mOverlay.setEditing(false); return; }
@@ -478,8 +493,8 @@ public class OrtaActivity extends SDLActivity {
 
     private static String pct(float f) { return Math.round(f * 100) + " %"; }
 
-    /** The BACK menu (maintainer 2026-11-11, his layout): Back to the game, Controls >, Graphics driver >,
-     *  Boot animation >, About and licences. */
+    /** The BACK menu in the maintainer's fixed order for all PS2 / Xbox Android ports (2026-11-21): Back to the game,
+     *  Controls >, Settings > (Saves, Export log, Boot animation, Graphics driver, About and licences). */
     private SideMenu.Page rootPage() {
         return new SideMenu.Page() {
             public String title() { return "Panzer Dragoon Orta Recomp"; }
@@ -487,15 +502,26 @@ public class OrtaActivity extends SDLActivity {
                 java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
                 l.add(new SideMenu.Item("Back to the game") { @Override void run() { mMenu.close(); } });
                 l.add(new SideMenu.Item("Controls") { @Override void run() { mMenu.push(controlsPage()); } });
+                l.add(new SideMenu.Item("Settings") { @Override void run() { mMenu.push(settingsPage()); } });
+                return l;
+            }
+        };
+    }
+
+    private SideMenu.Page settingsPage() {
+        return new SideMenu.Page() {
+            public String title() { return "Settings"; }
+            public java.util.List<SideMenu.Item> items() {
+                java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
+                l.add(new SideMenu.Item("Saves") { @Override void run() { mMenu.push(savesPage()); } });
+                l.add(new SideMenu.Item("Export log") { @Override void run() { mMenu.push(logPage()); } });
+                l.add(new SideMenu.Item("Boot animation: " + (bootVideo(OrtaActivity.this).exists() ? "boot.mpg" : "none")) {
+                    @Override void run() { mMenu.push(bootPage()); }
+                });
                 String drv = driverName(OrtaActivity.this);
                 l.add(new SideMenu.Item("Graphics driver: " + (drv != null ? drv : "system")) {
                     @Override void run() { mMenu.push(driverPage()); }
                 });
-                l.add(new SideMenu.Item("Boot animation: " + (bootVideo(OrtaActivity.this).exists() ? "boot.mpg" : "none")) {
-                    @Override void run() { mMenu.push(bootPage()); }
-                });
-                l.add(new SideMenu.Item("Saves") { @Override void run() { mMenu.push(savesPage()); } });
-                l.add(new SideMenu.Item("Export log") { @Override void run() { mMenu.push(logPage()); } });
                 l.add(new SideMenu.Item("About and licences") { @Override void run() { mMenu.push(aboutPage()); } });
                 return l;
             }
@@ -582,25 +608,88 @@ public class OrtaActivity extends SDLActivity {
         };
     }
 
-    /** Graphics driver (maintainer 2026-11-11: always available, not only at the first start): the system driver or a
-     *  Turnip package the player picks (.adpkg.zip, e.g. purple-turnip); either one restarts the game, since the
-     *  Vulkan library picks its driver once per process. */
+    /** Graphics driver (maintainer 2026-11-11: always available; 2026-11-21: up to five kept, as ZOE): the one in use,
+     *  the kept Turnip packages, add / remove one, the system driver. A switch restarts the game (the Vulkan library
+     *  picks its driver once per process). */
     private SideMenu.Page driverPage() {
         return new SideMenu.Page() {
             public String title() { return "Graphics driver"; }
             public java.util.List<SideMenu.Item> items() {
                 java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
-                final String drv = driverName(OrtaActivity.this);
-                l.add(new SideMenu.Item("System driver" + (drv == null ? "  (in use)" : "")) {
-                    @Override void run() { if (drv != null) { removeDriver(OrtaActivity.this); restartApp(); System.exit(0); } }
-                });
-                l.add(new SideMenu.Item("Change driver (Turnip .adpkg.zip)..." + (drv != null ? "  (in use: " + drv + ")" : "")) {
-                    @Override void run() { mMenu.close(); pickDriver(); }
+                final String drv = driverName(OrtaActivity.this), inUse = driverSlotInUse(OrtaActivity.this);
+                l.add(new SideMenu.Item("In use: " + (drv != null ? drv : "System driver")));
+                File[] kept = keptDrivers(OrtaActivity.this);
+                for (final File k : kept) {
+                    final boolean cur = k.getName().equals(inUse);
+                    l.add(new SideMenu.Item(keptDriverName(k) + (cur ? "  (in use)" : "")) {
+                        @Override void run() { if (!cur) switchToKept(k.getName()); }
+                    });
+                }
+                if (kept.length < MAX_DRIVERS)
+                    l.add(new SideMenu.Item("Add driver (.adpkg.zip)...") { @Override void run() { mMenu.close(); pickDriver(); } });
+                else
+                    l.add(new SideMenu.Item("(" + MAX_DRIVERS + " drivers kept - remove one to add another)"));
+                if (kept.length > 0)
+                    l.add(new SideMenu.Item("Remove a kept driver...") { @Override void run() { mMenu.push(removeDriverPage()); } });
+                l.add(new SideMenu.Item("Use system driver" + (drv == null ? "  (in use)" : "")) {
+                    @Override void run() {
+                        if (drv == null) return;
+                        new File(turnipDir(OrtaActivity.this), "driver.txt").delete();
+                        Log.i(TAG, "[DRIVER] system driver chosen");
+                        restartApp();
+                        System.exit(0);
+                    }
                 });
                 l.add(new SideMenu.Item("(the game restarts to switch the driver)"));
                 return l;
             }
         };
+    }
+
+    private SideMenu.Page removeDriverPage() {
+        return new SideMenu.Page() {
+            public String title() { return "Remove a kept driver"; }
+            public java.util.List<SideMenu.Item> items() {
+                java.util.List<SideMenu.Item> l = new java.util.ArrayList<>();
+                final String inUse = driverSlotInUse(OrtaActivity.this);
+                for (final File k : keptDrivers(OrtaActivity.this)) {
+                    final String name = keptDriverName(k);
+                    final boolean cur = k.getName().equals(inUse);
+                    l.add(new SideMenu.Item("Remove " + name + (cur ? "  (in use)" : "")) {
+                        @Override void run() {
+                            new android.app.AlertDialog.Builder(OrtaActivity.this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                                .setTitle("Graphics driver")
+                                .setMessage("Remove " + name + " from the kept drivers?" + (cur ? " It stays in use until "
+                                            + "you choose another driver." : ""))
+                                .setPositiveButton("Remove", (dlg, w) -> {
+                                    deleteTree(k);
+                                    if (cur) {          // the copy in turnip/ stays in use, no longer tied to a kept folder
+                                        File txt = new File(turnipDir(OrtaActivity.this), "driver.txt");
+                                        String[] t = readText(txt).split("\n");
+                                        try (OutputStream o = new FileOutputStream(txt)) {
+                                            o.write((t[0].trim() + "\n" + (t.length > 1 ? t[1].trim() : "") + "\n").getBytes());
+                                        } catch (IOException ignored) { }
+                                    }
+                                    Log.i(TAG, "[DRIVER] removed kept driver " + k.getName() + " (" + name + ")");
+                                    mMenu.back();
+                                })
+                                .setNegativeButton("Cancel", null)
+                                .show();
+                        }
+                    });
+                }
+                if (l.isEmpty()) l.add(new SideMenu.Item("No driver kept"));
+                return l;
+            }
+        };
+    }
+
+    /** A kept driver into turnip/ (a copy: removing the kept one later never breaks the one in use), then restart. */
+    private void switchToKept(String slot) {
+        String err = activateKept(this, slot);
+        if (!err.isEmpty()) { message("Graphics driver", err); return; }
+        restartApp();
+        System.exit(0);
     }
 
     /** Boot animation: media/boot.mpg (MPEG-1 + MP2) through the system picker - for players without adb / a file
@@ -659,6 +748,13 @@ public class OrtaActivity extends SDLActivity {
         };
     }
 
+    // ---- the setup screen (jni/loader/setup_ui_android.c, from the launcher's thread): OrtaSetup + VistaSetupView ----
+    public static String setupImagePage() { return OrtaSetup.imagePage((OrtaActivity) mSingleton); }
+    public static void setupProgress(String text, float f) { OrtaSetup.progress((OrtaActivity) mSingleton, text, f); }
+    public static boolean setupCancelled() { return OrtaSetup.cancelled(); }
+    public static void setupMessage(String text) { OrtaSetup.message((OrtaActivity) mSingleton, text); }
+    public static void setupClose(boolean ok) { OrtaSetup.close(ok); }
+
     /** The launcher's "Choose image...": SDL's file dialog gives a content:// URI, the installer reads files by path
      *  (open / fopen / stat). A path to the picked document itself does not exist for the app (no storage
      *  permission; reopening /proc/self/fd/N of the picker's descriptor goes through the FUSE path again and is
@@ -714,23 +810,123 @@ public class OrtaActivity extends SDLActivity {
         return out.getAbsolutePath();
     }
 
-    /** A Turnip driver package the player picked (maintainer 2026-11-11: the driver is chosen like the ISO, not
-     *  shipped): an adrenotools .adpkg.zip (meta.json + the driver .so, e.g. purple-turnip). Unpacked into
-     *  <files>/turnip/ (replacing an older one); driver.txt = the library name + the package name for
-     *  vkshim/vulkan_orta.c. Returns "" on success, else a sentence for the player. Called through JNI or the menu. */
-    public static String importDriver(String uri) {
-        Context ctx = mSingleton.getApplicationContext();
-        // Turnip runs only on Adreno GPUs: on any other GPU it would end the game at its first Vulkan call
-        // (system_gpu.txt: jni/loader/driver_check.c, written at every start)
+    // ---- Graphics driver: the system driver or a Turnip package the player added (.adpkg.zip, e.g. purple-turnip).
+    // Up to MAX_DRIVERS packages are kept, each unpacked in its own folder <files>/drivers/<n>/ (the .so + meta.json).
+    // The one in use is a copy in <files>/turnip/ with driver.txt (line 1 the library's file name - what
+    // vkshim/vulkan_orta.c reads -, line 2 the display name, line 3 the kept folder it came from). As ZOE's
+    // (agent L 2026-11-23: the same driver management in every Android port).
+    static final int MAX_DRIVERS = 5;
+
+    static File driversDir(Context ctx) { return new File(ctx.getFilesDir(), "drivers"); }
+    static File turnipDir(Context ctx) { return new File(ctx.getFilesDir(), "turnip"); }
+
+    static File[] keptDrivers(Context ctx) {
+        File[] d = driversDir(ctx).listFiles(f -> f.isDirectory() && f.getName().matches("[0-9]+")
+                                                  && new File(f, "meta.json").isFile());
+        if (d == null) return new File[0];
+        java.util.Arrays.sort(d, (a, b) -> Integer.compare(Integer.parseInt(a.getName()), Integer.parseInt(b.getName())));
+        return d;
+    }
+
+    private static String metaName(File dir) {
+        try {
+            org.json.JSONObject j = new org.json.JSONObject(readText(new File(dir, "meta.json")));
+            String n = j.optString("name", "").trim();
+            if (n.isEmpty()) return null;
+            String v = j.optString("driverVersion", "").trim();
+            return v.isEmpty() ? n : n + " " + v;
+        } catch (Exception e) { return null; }
+    }
+
+    private static String metaLib(File dir) {
+        try {
+            String lib = new org.json.JSONObject(readText(new File(dir, "meta.json"))).optString("libraryName", "");
+            return lib.isEmpty() ? null : new File(lib).getName();
+        } catch (Exception e) { return null; }
+    }
+
+    static String keptDriverName(File dir) {
+        String n = metaName(dir);
+        if (n != null) return n;
+        String lib = metaLib(dir);
+        return lib != null ? lib : "Driver " + dir.getName();
+    }
+
+    /** The kept folder the driver in use came from (driver.txt line 3), "" if none. */
+    static String driverSlotInUse(Context ctx) {
+        if (driverName(ctx) == null) return "";
+        String[] l = readText(new File(turnipDir(ctx), "driver.txt")).split("\n");
+        return l.length > 2 ? l[2].trim() : "";
+    }
+
+    /** v0.2.0 kept one driver only (turnip/, no line 3): kept as drivers/1 so the page lists it. */
+    private void migrateDriver() {
+        File txt = new File(turnipDir(this), "driver.txt");
+        if (!txt.isFile() || keptDrivers(this).length > 0 || !driverSlotInUse(this).isEmpty()) return;
+        String[] l = readText(txt).split("\n");
+        File dst = new File(driversDir(this), "1");
+        try {
+            deleteTree(dst);
+            dst.mkdirs();
+            File[] fs = turnipDir(this).listFiles();
+            if (fs != null) for (File f : fs) if (!f.getName().equals("driver.txt")) copyTree(f, new File(dst, f.getName()));
+            if (!new File(dst, "meta.json").isFile()) { deleteTree(dst); return; }
+            try (OutputStream o = new FileOutputStream(txt)) {
+                o.write((l[0].trim() + "\n" + (l.length > 1 ? l[1].trim() : "") + "\n1\n").getBytes());
+            }
+            Log.i(TAG, "[DRIVER] the driver in use kept as drivers/1");
+        } catch (IOException e) { deleteTree(dst); }
+    }
+
+    /** The kept driver drivers/<slot> made the one in use (a copy in turnip/ with driver.txt); "" or a sentence.
+     *  (The game picks its driver once per process: the caller restarts it - or, the setup, starts it after.) */
+    static String activateKept(Context ctx, String slot) {
+        File src = new File(driversDir(ctx), slot), dst = turnipDir(ctx);
+        String lib = metaLib(src);
+        if (lib == null || !new File(src, lib).isFile()) return "This driver package is incomplete. Please remove it and add it again.";
+        File tmp = new File(ctx.getFilesDir(), "data/tmp/turnip_new");
+        deleteTree(tmp);
+        try {
+            copyTree(src, tmp);
+            try (OutputStream o = new FileOutputStream(new File(tmp, "driver.txt"))) {
+                o.write((lib + "\n" + keptDriverName(src) + "\n" + slot + "\n").getBytes());
+            }
+        } catch (IOException e) {
+            deleteTree(tmp);
+            return "The driver could not be installed (storage): " + e.getMessage();
+        }
+        deleteTree(dst);
+        if (!tmp.renameTo(dst)) { deleteTree(tmp); return "The driver could not be installed (storage)."; }
+        Log.i(TAG, "[DRIVER] chosen: " + keptDriverName(src) + " (" + lib + ", kept " + slot + ")");
+        return "";
+    }
+
+    /** Turnip runs only on Adreno GPUs (system_gpu.txt: jni/loader/driver_check.c, written at every start; else the
+     *  SoC maker on Android 12+; unknown: allowed). */
+    static boolean maybeAdreno(Context ctx) {
         String gpu = readText(new File(ctx.getFilesDir(), "system_gpu.txt"));
-        if (!gpu.isEmpty() && !gpu.contains("Adreno"))
-            return "Turnip drivers work only on Adreno GPUs (Snapdragon). This device has: " + gpu.split("\n")[0]
-                   + ". Please keep the system driver.";
-        File dir = new File(ctx.getFilesDir(), "turnip"), tmp = new File(ctx.getFilesDir(), "data/tmp/driver_new");
-        String lib = null, name = "Turnip";
+        if (!gpu.isEmpty() && !gpu.startsWith("no device")) return gpu.contains("Adreno");
+        if (android.os.Build.VERSION.SDK_INT < 31) return true;
+        String m = android.os.Build.SOC_MANUFACTURER;
+        if (m == null || m.isEmpty() || m.equalsIgnoreCase("unknown")) return true;
+        m = m.toLowerCase(java.util.Locale.ROOT);
+        return m.contains("qti") || m.contains("qualcomm");
+    }
+
+    /** An adrenotools .adpkg.zip (meta.json + the driver .so) the player picked, unpacked into the lowest free
+     *  drivers/<n>/. Returns "" on success (slot[0] = the folder's name), else a sentence for the player. */
+    static String importDriver(Context ctx, android.net.Uri uri, String[] slot) {
+        if (!maybeAdreno(ctx)) {
+            String gpu = readText(new File(ctx.getFilesDir(), "system_gpu.txt"));
+            return "Turnip drivers work only on Adreno GPUs (Snapdragon)." + (gpu.isEmpty() ? "" : " This device has: "
+                   + gpu.split("\n")[0] + ".") + " Please keep the system driver.";
+        }
+        File[] kept = keptDrivers(ctx);
+        File tmp = new File(ctx.getFilesDir(), "data/tmp/driver_new");
         deleteTree(tmp);
         tmp.mkdirs();
-        try (InputStream in = ctx.getContentResolver().openInputStream(android.net.Uri.parse(uri));
+        String lib;
+        try (InputStream in = ctx.getContentResolver().openInputStream(uri);
              java.util.zip.ZipInputStream z = new java.util.zip.ZipInputStream(in)) {
             java.util.zip.ZipEntry e;
             while ((e = z.getNextEntry()) != null) {
@@ -742,12 +938,12 @@ public class OrtaActivity extends SDLActivity {
                     while ((r = z.read(buf)) > 0) o.write(buf, 0, r);
                 }
             }
-            File meta = new File(tmp, "meta.json");
-            if (!meta.exists()) { deleteTree(tmp); return "This file is not a driver package (no meta.json). Please choose a Turnip .adpkg.zip."; }
-            org.json.JSONObject j = new org.json.JSONObject(new String(java.nio.file.Files.readAllBytes(meta.toPath())));
-            lib = j.optString("libraryName", null);
-            name = j.optString("name", name) + " " + j.optString("driverVersion", "");
-            if (lib == null || !new File(tmp, new File(lib).getName()).exists()) {
+            if (!new File(tmp, "meta.json").exists()) {
+                deleteTree(tmp);
+                return "This file is not a driver package (no meta.json). Please choose a Turnip .adpkg.zip.";
+            }
+            lib = metaLib(tmp);
+            if (lib == null || !new File(tmp, lib).exists()) {
                 deleteTree(tmp);
                 return "The driver package names a library it does not contain.";
             }
@@ -756,15 +952,37 @@ public class OrtaActivity extends SDLActivity {
             Log.e(TAG, "[DRIVER] cannot import " + uri + ": " + ex);
             return "The driver package could not be read: " + ex.getMessage();
         }
-        deleteTree(dir);
-        if (!tmp.renameTo(dir)) return "The driver could not be installed (storage).";
-        try (OutputStream o = new FileOutputStream(new File(dir, "driver.txt"))) {
-            o.write((new File(lib).getName() + "\n" + name.trim() + "\n").getBytes());
-        } catch (IOException ex) {
-            return "The driver could not be installed (storage).";
+        // the same package twice (same name, same library size): the kept one is used
+        String name = keptDriverName(tmp);
+        long size = new File(tmp, lib).length();
+        for (File k : kept) {
+            String kl = metaLib(k);
+            if (name.equals(keptDriverName(k)) && kl != null && new File(k, kl).length() == size) {
+                deleteTree(tmp);
+                slot[0] = k.getName();
+                return "";
+            }
         }
-        Log.i(TAG, "[DRIVER] installed " + name + " (" + lib + ")");
+        if (kept.length >= MAX_DRIVERS) { deleteTree(tmp); return MAX_DRIVERS + " drivers are kept already - please remove one first."; }
+        java.util.Set<String> used = new java.util.HashSet<>();
+        File[] all = driversDir(ctx).listFiles();                   // also half-made folders (no meta.json)
+        if (all != null) for (File a : all) used.add(a.getName());
+        int n = 1;
+        while (used.contains(String.valueOf(n))) n++;
+        File dst = new File(driversDir(ctx), String.valueOf(n));
+        driversDir(ctx).mkdirs();
+        if (!tmp.renameTo(dst)) { deleteTree(tmp); return "The driver could not be stored (storage)."; }
+        slot[0] = dst.getName();
+        Log.i(TAG, "[DRIVER] kept " + name + " (" + lib + ") as drivers/" + slot[0]);
         return "";
+    }
+
+    /** driver_check.c's "Choose driver..." (JNI, Adreno below Vulkan 1.3): kept + made the one in use; "" or a sentence. */
+    public static String importDriver(String uri) {
+        Context ctx = mSingleton.getApplicationContext();
+        String[] slot = { null };
+        String err = importDriver(ctx, android.net.Uri.parse(uri), slot);
+        return err.isEmpty() ? activateKept(ctx, slot[0]) : err;
     }
 
     private void message(String title, String text) {
@@ -935,14 +1153,13 @@ public class OrtaActivity extends SDLActivity {
         Log.i(TAG, "[SAVES] import applied (old saves in " + bdir + ")");
     }
 
-    /** "Use the system driver": the picked Turnip driver is removed. */
-    static void removeDriver(Context ctx) { deleteTree(new File(ctx.getFilesDir(), "turnip")); }
-
+    /** The driver in use: null = the system driver; else meta.json's name in turnip/, else driver.txt's line 2 / 1. */
     static String driverName(Context ctx) {
-        try {
-            String[] l = new String(java.nio.file.Files.readAllBytes(new File(ctx.getFilesDir(), "turnip/driver.txt").toPath())).split("\n");
-            return l.length > 1 ? l[1] : l[0];
-        } catch (Exception e) { return null; }
+        File dir = turnipDir(ctx);
+        String[] l = readText(new File(dir, "driver.txt")).split("\n");
+        if (l[0].trim().isEmpty() || !new File(dir, l[0].trim()).isFile()) return null;
+        String n = metaName(dir);
+        return n != null ? n : l.length > 1 && !l[1].trim().isEmpty() ? l[1].trim() : l[0].trim();
     }
 
     static String getImportDir(Context ctx) {
@@ -993,7 +1210,7 @@ public class OrtaActivity extends SDLActivity {
         return n;
     }
 
-    private static void deleteTree(File f) {
+    static void deleteTree(File f) {
         File[] kids = f.listFiles();
         if (kids != null) for (File k : kids) deleteTree(k);
         f.delete();

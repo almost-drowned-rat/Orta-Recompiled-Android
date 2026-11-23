@@ -33,9 +33,8 @@ is translated and compiled **on your device** once, and then it plays - with tou
 
 ## Status
 
-**v0.2.0 (experimental)** - based on **v1.2.2 of the Windows / Linux port**
-([Orta-Recompiled](https://github.com/almost-drowned-rat/Orta-Recompiled)). The Android port has its own version
-numbers. Download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
+**v1.3.0 (experimental)** - the same version as the Windows / Linux port it is built from
+([Orta-Recompiled v1.3.0](https://github.com/almost-drowned-rat/Orta-Recompiled/releases/tag/v1.3.0)). Download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
 and install it (Android 10+, arm64). It is signed with the project's own key - every later update installs over it.
 
 Tested on:
@@ -45,6 +44,23 @@ Tested on:
 | AYN Odin 2 Portal | Snapdragon 8 Gen 2 / Adreno 740 | purple-turnip T30 | runs, borderless, built-in controls work (the system driver, Vulkan 1.3.128 on Android 13: graphics glitches) |
 | Samsung Galaxy Tab S8 | Snapdragon 8 Gen 1 / Adreno 730 | purple-turnip T30 | v0.1.1: runs, 60 fps with MSAA 4x and bloom in the title's real-time demo (the system driver offers only Vulkan 1.1) |
 | Samsung Galaxy S23 | Snapdragon 8 Gen 2 / Adreno 740 | purple-turnip T30 | v0.2.0: runs, touch aiming tested (Android 17; the system driver, Vulkan 1.3.128, runs too) |
+
+## Features
+
+- **The whole game, native on your device** - no emulator: the Xbox program is translated to C and compiled for
+  arm64 on the device; the picture is drawn with **Vulkan**.
+- **Built from your own disc** - the app carries no game code; the first start builds the game once (about 7-10
+  minutes), then every start goes straight into the game.
+- **One setup screen** (the standard of all my Android ports): your disc image and the graphics driver, a progress
+  bar with the step and its time, **Quit** asks first and stops cleanly.
+- **Graphics driver of your choice** - the system driver or a **Turnip** package (`.adpkg.zip`) from a file; up to 5
+  packages are kept and can be switched in the BACK menu. No driver comes with the app.
+- **Everything of the [PC port v1.3.0](https://github.com/almost-drowned-rat/Orta-Recompiled#readme)** - RECOMP
+  OPTIONS in pages: POST PROCESSING (antialiasing, bloom, anisotropic filter, upscaling bilinear / FSR 1), DISPLAY
+  (render resolution, aspect ratio 4:3 / 16:9 / 16:10 / 21:9, field of view; Android always runs full screen),
+  PERFORMANCE (V-sync, FPS, frame time, game speed), RENDERING (shader compile mode, shader notice), BOOT ANIMATION.
+- **Touch controls** with **touch aiming**, gamepads and a handheld's own controls.
+- **BACK menu** - controls, saves export / import, log export, boot animation, graphics driver, licences.
 
 ## Requirements
 
@@ -57,16 +73,17 @@ Tested on:
 
 ## How it works
 
-1. Install the app and start it.
-2. Choose the Turnip driver package (`turnip_mrpurple_T30-toasted.adpkg.zip` from your Download folder - with adb:
-   `adb push turnip_mrpurple_T30-toasted.adpkg.zip /sdcard/Download/`): the app asks for it on devices whose own
-   driver is too old; on all others open **BACK > Graphics driver > Change driver** once the game runs. The app
-   restarts with Turnip. **BACK > Graphics driver > System driver** goes back at any time.
-3. Choose your disc image in the system file picker. It is copied into the app and extracted (the copy is deleted
-   afterwards; your own file stays where it is).
-4. The game's code is translated and compiled on the device - **once**, about 7-10 minutes (and once more after an
-   update). Keep the app open; the screen stays on by itself.
-5. The game starts. Every later start goes straight into the game.
+1. Install the app and start it. The setup screen opens.
+2. **Browse...** your disc image.
+3. **Graphics driver (change...)**: keep the *system driver*, or choose *Turnip driver from a file* and pick the
+   Turnip package (`turnip_mrpurple_T30-toasted.adpkg.zip`, e.g. from your Download folder). You can change it any
+   time later in **BACK > Settings > Graphics driver**. (On a device whose own driver is too old, the app asks for a
+   Turnip package before the setup.)
+4. **Install.** The image is copied into the app and extracted (the copy is deleted afterwards; your own file stays
+   where it is), then the game's code is translated and compiled on the device - **once**, about 7-10 minutes (and
+   once more after an app update, without asking for the disc again). Keep the app open; the screen stays on.
+   **Quit** asks first, then stops cleanly.
+5. **Play.** Every later start goes straight into the game.
 
 **Frame rate at first:** while you play, the frame rate drops now and then at the beginning and gets better the longer
 you play. That is the shader compilation: every new effect, scene or menu needs its shaders built once on the device,
@@ -86,9 +103,9 @@ Back up your saves with `adb pull /sdcard/Android/data/io.github.almostdrownedra
 disc) stays in the app's internal storage.
 
 **Boot animation (optional):** your own `boot.mpg` (MPEG-1 video + MP2 audio, like the PC port) plays before the
-title. Either **BACK > Boot animation > Import file...**, or copy it with adb:
+title. Either **BACK > Settings > Boot animation > Import file...**, or copy it with adb:
 `adb push boot.mpg /sdcard/Android/data/io.github.almostdrownedrat.orta/files/media/`. Turn it on / off in the game:
-OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Boot animation > None** removes it again.
+OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Settings > Boot animation > None** removes it again.
 
 ## Controls
 
@@ -101,15 +118,19 @@ OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Boot animation > None** remo
 - **Gamepads** work out of the box. With the touch buttons on *Automatic* they hide while a gamepad is used. Every
   controller plays as player 1 (the game is single-player), so a handheld's own controls, a touch pad and an external
   pad all work at the same time.
-- **BACK** opens a menu that slides in from the left (the game keeps running behind it):
-  - **Controls** - touch buttons on / off / automatic, the connected controllers, move and resize the touch buttons,
-    button size, hide single buttons, opacity, stick sensitivity, reset the layout
-  - **Graphics driver** - the system driver, or change to a Turnip package; switch at any time
-  - **Boot animation** - none, or import your boot.mpg
-  - **Saves** - export your saves as one zip, or import such a zip (your current saves are kept as a backup)
-  - **Export log** - the log of one of the last 5 starts, or of all of them, to a file you choose - please attach it
-    to a bug report
-  - **About and licences**
+- **BACK** opens a menu that slides in from the left (the game keeps running behind it), in the same order as in all
+  my Android ports:
+  - **Back to the game**
+  - **Controls** - touch buttons on / off / automatic, touch layout (stick / touch aiming), the connected
+    controllers, move and resize the touch buttons, button size, hide single buttons, opacity, stick sensitivity,
+    reset the layout
+  - **Settings**
+    - **Saves** - export your saves as one zip, or import such a zip (your current saves are kept as a backup)
+    - **Export log** - the log of one of the last 5 starts, or of all of them, to a file you choose - please attach
+      it to a bug report
+    - **Boot animation** - none, or import your boot.mpg
+    - **Graphics driver** - the driver in use, up to 5 kept Turnip packages (add / remove), the system driver
+    - **About and licences**
 
 ## Troubleshooting
 
@@ -117,18 +138,19 @@ OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Boot animation > None** remo
 |---|---|---|
 | "App not installed" when installing | Android older than 10, or a 32-bit / x86 device | the app needs Android 10+ on arm64 - it cannot run on this device |
 | "Graphics driver needed" at the first start | an Adreno GPU whose own driver offers less than Vulkan 1.3 | choose a Turnip package (link above) |
+| A message on the setup screen, then the app closes | a step of the build failed | **BACK > Settings > Export log** after the next start, or `adb logcat`; please open an issue |
 | "I am sorry - ... offers only Vulkan ..." at the first start | no Adreno GPU (Mali, Xclipse, PowerVR, ...) and less than Vulkan 1.3 | Turnip exists only for Adreno - the game cannot run on this device |
 | "Turnip drivers work only on Adreno GPUs" | a Turnip package chosen on a device without an Adreno GPU | keep the system driver |
 | "Not enough storage" after choosing the image | the first start needs about twice the image's size free | free some storage and choose the image again |
 | The progress bar runs for minutes | the game is translated and compiled on the device (first start, after an update) | wait - about 7-10 minutes |
-| Black screen, then the app closes | not known yet | **BACK > Export log**, choose the run before "this run", and attach the file to an issue together with your device |
-| Graphics glitches | the phone's own driver | use Turnip T30 (BACK > Graphics driver) |
+| Black screen, then the app closes | not known yet | **BACK > Settings > Export log**, choose the run before "this run", and attach the file to an issue together with your device |
+| Graphics glitches | the phone's own driver | use Turnip T30 (BACK > Settings > Graphics driver) |
 
 ## Building
 
 The APK is built on Linux with `tools/build_android.sh` (Android SDK 36, NDK r30, JDK 21, Gradle 9.9.1; the script
 lists every path it reads as environment variables). It needs the toolkit,
-[xboxrecomp-option-c **v1.2.1**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.2.1) (the
+[xboxrecomp-option-c **v1.3.0**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.3.0) (the
 exact toolkit source inside the app), and its Android runtime SDK and on-device compiler, made by the toolkit's
 `tools/android` scripts (Linux and Android changes: its `docs/option_c.md`, section 7). The release APK is signed with
 the project's own release key; `tools/build_android.sh --release` expects it outside the repository.
@@ -137,6 +159,7 @@ the project's own release key; `tools/build_android.sh --release` expects it out
 
 GPL-3.0-or-later (see `LICENSE`). Third-party parts the app uses: SDL3 (zlib), CPython (PSF), capstone (BSD-3),
 libadrenotools (BSD-2), LLVM / clang / lld (Apache-2.0 with LLVM exception), the xboxrecomp toolkit (MIT, with
-LGPL-2.1 parts from xemu); origins in `docs/sources.md`. A Turnip driver (Mesa, MIT) is never shipped - you choose it.
+LGPL-2.1 parts from xemu - the sound core is its own library in the app, `libxbox_apu.so`; its source is the LGPL
+source zip attached to each release); origins in `docs/sources.md`. A Turnip driver (Mesa, MIT) is never shipped - you choose it.
 
 *Panzer Dragoon Orta* is a trademark of SEGA. This project is not affiliated with or endorsed by SEGA or Microsoft.

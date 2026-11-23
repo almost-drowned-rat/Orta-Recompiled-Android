@@ -23,9 +23,10 @@ if(NOT XR_TOOLKIT OR NOT PORT_ICON_DIR)
     message(FATAL_ERROR "-DXR_TOOLKIT=<toolkit worktree> / -DPORT_ICON_DIR=<port_icon.h folder> missing (build_android.ps1)")
 endif()
 set(TK ${XR_TOOLKIT}/src)
-# (the progress UI is the port's own, in the Windows setup look: launcher/setup_ui_sdl.c, not game_setup_ui.c)
+# (the setup UI is the standard Android setup screen in the Vista look: loader/setup_ui_android.c -> OrtaSetup.java /
+# VistaSetupView.java; not game_setup_ui.c, not launcher/setup_ui_sdl.c)
 target_sources(main PRIVATE ${TK}/launcher/launcher.c ${TK}/launcher/sha256.c ${TK}/install/game_setup.c
-               ${CMAKE_CURRENT_SOURCE_DIR}/../../../../launcher/setup_ui_sdl.c ${TK}/install/xdvdfs.c ${TK}/shaderpack/zip_read.c
+               loader/setup_ui_android.c ${TK}/install/xdvdfs.c ${TK}/shaderpack/zip_read.c
                ${TK}/shaderpack/third_party/miniz/miniz_tinfl.c ${TK}/kernel/window_icon.c ${TK}/platform/host_paths.c)
 target_include_directories(main PRIVATE ${TK}/launcher ${TK}/install ${TK}/shaderpack ${TK}/shaderpack/third_party/miniz
                            ${TK}/kernel ${TK} ${PORT_ICON_DIR} ${CMAKE_CURRENT_BINARY_DIR}/miniz)

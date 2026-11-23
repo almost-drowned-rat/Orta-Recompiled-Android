@@ -66,6 +66,9 @@ if [ -f "$andb/xr_glslang/libxr_glslang.so" ]; then
     [ -f "$andb/xr_glslang/xr_glslang_link_test" ] && cp -f "$andb/xr_glslang/xr_glslang_link_test" "$pre/libxr_glslang_test.so"
 fi
 
+# the APU module (option-c XBOXRECOMP_APU_SHARED, docs/apu_module.md: the xemu sound core, LGPL-2.1, as its own
+# library): libxbox_apu.so in nativeLibraryDir, where apu_host.c's dlopen("libxbox_apu.so") finds it on Android
+[ -f "$rsdk/lib/libxbox_apu.so" ] && cp -f "$rsdk/lib/libxbox_apu.so" "$pre/libxbox_apu.so"
 # the embedded CPython (python.org's Android package): libpython as a jniLib, the stdlib + lifter as assets
 cp -f "$py/lib/libpython3.15.so" "$pre/libpython3.15.so"
 assets=$out/assets
@@ -204,7 +207,9 @@ cat > "$licA/README.txt" <<'LICEOF'
 Orta Recompiled - Android: the licences of everything inside this app
 
 Orta Recompiled (this app's own code)   GPL-3.0-or-later   github.com/almost-drowned-rat/Orta-Recompiled-Android
-xboxrecomp toolkit (option-c)           MIT, parts from xemu under LGPL-2.1-or-later (NOTICE lists them)
+xboxrecomp toolkit (option-c)           MIT, parts from xemu under LGPL-2.1-or-later (NOTICE lists them;
+                                        the sound core is its own library, libxbox_apu.so - its source:
+                                        the LGPL source zip of the release)
                                         github.com/almost-drowned-rat/xboxrecomp-option-c
   in it: SMAA (MIT), miniz (MIT), pl_mpeg (MIT, the boot animation)
 SDL3                                    zlib               github.com/libsdl-org/SDL

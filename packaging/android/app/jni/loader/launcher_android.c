@@ -47,6 +47,10 @@ static int orta_open_uri(const char *uri, char *path, size_t n)
     return ok;
 }
 
+/* the standard Android setup screen's form (setup_ui_android.c): the disc image + the graphics driver */
+int orta_setup_image_page(void *ui, const char *disc, char *iso, size_t n, const char *note);
+void xr_launcher_set_image_page(int (*fn)(void *ui, const char *disc, char *iso, size_t n, const char *note));
+
 int orta_android_launcher(int argc, char **argv)
 {
     /* the supported versions (CLAUDE.md "Title decisions"; src/main.c orta_game_setup) */
@@ -73,5 +77,6 @@ int orta_android_launcher(int argc, char **argv)
         av[n++] = argv[i];
     av[n++] = "--no-start";
     av[n] = NULL;
+    xr_launcher_set_image_page(orta_setup_image_page);
     return xr_launcher_main(&c, n, av);
 }
