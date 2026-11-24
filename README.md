@@ -33,8 +33,10 @@ is translated and compiled **on your device** once, and then it plays - with tou
 
 ## Status
 
-**v1.3.0 (experimental)** - the same version as the Windows / Linux port it is built from
-([Orta-Recompiled v1.3.0](https://github.com/almost-drowned-rat/Orta-Recompiled/releases/tag/v1.3.0)). Download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
+**v1.3.0-scheduler.fix (experimental)** - the same version as the Windows / Linux port it is built from
+([Orta-Recompiled v1.3.0](https://github.com/almost-drowned-rat/Orta-Recompiled/releases/tag/v1.3.0)), plus an
+Android-only fix: the runtime's busy threads get a fast CPU core each, so the phone's power-saving scheduler no longer
+makes the game miss frames (33 ms frames and a GAME SPEED of 92-98 % in v1.3.0). Download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
 and install it (Android 10+, arm64). It is signed with the project's own key - every later update installs over it.
 
 Tested on:
@@ -150,8 +152,10 @@ OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Settings > Boot animation > 
 
 The APK is built on Linux with `tools/build_android.sh` (Android SDK 36, NDK r30, JDK 21, Gradle 9.9.1; the script
 lists every path it reads as environment variables). It needs the toolkit,
-[xboxrecomp-option-c **v1.3.0**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.3.0) (the
-exact toolkit source inside the app), and its Android runtime SDK and on-device compiler, made by the toolkit's
+[xboxrecomp-option-c **v1.3.0**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.3.0) with
+the Android change `xboxrecomp-option-c-v1.3.0-scheduler-fix.patch` from the
+[v1.3.0-scheduler.fix release](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases/tag/v1.3.0-scheduler.fix)
+(the exact toolkit source is inside the app), and its Android runtime SDK and on-device compiler, made by the toolkit's
 `tools/android` scripts (Linux and Android changes: its `docs/option_c.md`, section 7). The release APK is signed with
 the project's own release key; `tools/build_android.sh --release` expects it outside the repository.
 
