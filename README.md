@@ -39,6 +39,9 @@ Android-only fix: the runtime's busy threads get a fast CPU core each, so the ph
 makes the game miss frames (33 ms frames and a GAME SPEED of 92-98 % in v1.3.0). Download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
 and install it (Android 10+, arm64). It is signed with the project's own key - every later update installs over it.
 
+Updates install over the previous version and keep your saves. To get them automatically, add this repository to
+[Obtainium](https://github.com/ImranR98/Obtainium) (`https://github.com/almost-drowned-rat/Orta-Recompiled-Android`).
+
 Tested on:
 
 | Device | Chip / GPU | Driver | Result |
