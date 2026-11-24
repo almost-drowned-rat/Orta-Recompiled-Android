@@ -33,11 +33,15 @@ is translated and compiled **on your device** once, and then it plays - with tou
 
 ## Status
 
-**v1.3.0-scheduler.fix (experimental)** - the same version as the Windows / Linux port it is built from
-([Orta-Recompiled v1.3.0](https://github.com/almost-drowned-rat/Orta-Recompiled/releases/tag/v1.3.0)), plus an
-Android-only fix: the runtime's busy threads get a fast CPU core each, so the phone's power-saving scheduler no longer
-makes the game miss frames (33 ms frames and a GAME SPEED of 92-98 % in v1.3.0). Download the APK from [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases)
-and install it (Android 10+, arm64). It is signed with the project's own key - every later update installs over it.
+**v1.0.0 (experimental)** - based on [Orta Recompiled v1.3.1](https://github.com/almost-drowned-rat/Orta-Recompiled/releases/tag/v1.3.1)
+(Windows / Linux) and the toolkit xboxrecomp-option-c `v1.3.1`. Download the APK from
+[Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases) and install it (Android 10+, arm64).
+It is signed with the project's own key - every later update installs over it.
+
+The Android version is an app of its own, with its own version numbers: Android sometimes needs fixes the Windows /
+Linux version does not, so it counts on its own from 1.0.0. Every release names the Windows / Linux version it is
+based on. (The earlier Android releases were numbered after the PC version, up to v1.3.0-scheduler.fix - that
+numbering was a mistake and was dropped; v1.0.0 is newer than them.)
 
 Updates install over the previous version and keep your saves. To get them automatically, add this repository to
 [Obtainium](https://github.com/ImranR98/Obtainium) (`https://github.com/almost-drowned-rat/Orta-Recompiled-Android`).
@@ -60,7 +64,7 @@ Tested on:
   bar with the step and its time, **Quit** asks first and stops cleanly.
 - **Graphics driver of your choice** - the system driver or a **Turnip** package (`.adpkg.zip`) from a file; up to 5
   packages are kept and can be switched in the BACK menu. No driver comes with the app.
-- **Everything of the [PC port v1.3.0](https://github.com/almost-drowned-rat/Orta-Recompiled#readme)** - RECOMP
+- **Everything of the [PC port v1.3.1](https://github.com/almost-drowned-rat/Orta-Recompiled#readme)** - RECOMP
   OPTIONS in pages: POST PROCESSING (antialiasing, bloom, anisotropic filter, upscaling bilinear / FSR 1), DISPLAY
   (render resolution, aspect ratio 4:3 / 16:9 / 16:10 / 21:9, field of view; Android always runs full screen),
   PERFORMANCE (V-sync, FPS, frame time, game speed), RENDERING (shader compile mode, shader notice), BOOT ANIMATION.
@@ -153,14 +157,13 @@ OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Settings > Boot animation > 
 
 ## Building
 
-The APK is built on Linux with `tools/build_android.sh` (Android SDK 36, NDK r30, JDK 21, Gradle 9.9.1; the script
-lists every path it reads as environment variables). It needs the toolkit,
-[xboxrecomp-option-c **v1.3.0**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/releases/tag/v1.3.0) with
-the Android change `xboxrecomp-option-c-v1.3.0-scheduler-fix.patch` from the
-[v1.3.0-scheduler.fix release](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases/tag/v1.3.0-scheduler.fix)
-(the exact toolkit source is inside the app), and its Android runtime SDK and on-device compiler, made by the toolkit's
-`tools/android` scripts (Linux and Android changes: its `docs/option_c.md`, section 7). The release APK is signed with
-the project's own release key; `tools/build_android.sh --release` expects it outside the repository.
+The APK is built on Linux with `packaging/android/build_android.sh` (Android SDK 36, NDK r30, JDK 21, Gradle 9.9.1;
+the script lists every path it reads as environment variables). The Android project itself is the toolkit's template
+(`templates/android`, which grew out of this app's own Android project): it needs the toolkit
+[xboxrecomp-option-c at tag **v1.3.1**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/tree/v1.3.1) (the
+exact toolkit source is inside the app), its Android runtime SDK with the APU module (`libxbox_apu.so`) and the
+on-device compiler, made by the toolkit's `tools/android` scripts. The release APK is signed with the project's own
+release key; `build_android.sh --release` expects it outside the repository.
 
 ## Licence
 

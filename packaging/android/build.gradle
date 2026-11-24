@@ -1,5 +1,0 @@
-plugins {
-    id 'com.android.application' apply false
-}
-def outDir = findProperty('outDir')
-if (outDir != null) layout.buildDirectory = file("${outDir}/root")

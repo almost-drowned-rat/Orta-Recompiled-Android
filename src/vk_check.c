@@ -46,9 +46,9 @@ int orta_vk_check(char *found, size_t n)
 #elif defined(__APPLE__)
     const char *lib = "libvulkan.1.dylib";
 #elif defined(__ANDROID__)
-    /* the APK's Vulkan library (packaging/android vkshim): the system driver, or Turnip on Adreno GPUs without 1.3
-       (Android has no libvulkan.so.1 - S23 2026-11-11: "no Vulkan driver found") */
-    const char *lib = "libvulkan_orta.so";
+    /* the APK's Vulkan library (the toolkit's templates/android vkshim since Android 1.0.0; Orta's own one was
+       libvulkan_orta.so): the system driver, or Turnip on Adreno GPUs without 1.3 (Android has no libvulkan.so.1) */
+    const char *lib = "libvulkan_port.so";
 #else
     const char *lib = "libvulkan.so.1";
 #endif
