@@ -33,8 +33,9 @@ is translated and compiled **on your device** once, and then it plays - with tou
 
 ## Status
 
-**v1.0.0 (experimental)** - based on [Orta Recompiled v1.3.1](https://github.com/almost-drowned-rat/Orta-Recompiled/releases/tag/v1.3.1)
-(Windows / Linux) and the toolkit xboxrecomp-option-c `v1.3.1`. Download the APK from
+**v1.0.1 (experimental)** - based on [Orta Recompiled v1.3.2](https://github.com/almost-drowned-rat/Orta-Recompiled/releases/tag/v1.3.2)
+(Windows / Linux) and the toolkit xboxrecomp-option-c `v1.3.2` (a fix in the toolkit's file layer: saves are
+overwritten correctly). Download the APK from
 [Releases](https://github.com/almost-drowned-rat/Orta-Recompiled-Android/releases) and install it (Android 10+, arm64).
 It is signed with the project's own key - every later update installs over it.
 
@@ -64,7 +65,7 @@ Tested on:
   bar with the step and its time, **Quit** asks first and stops cleanly.
 - **Graphics driver of your choice** - the system driver or a **Turnip** package (`.adpkg.zip`) from a file; up to 5
   packages are kept and can be switched in the BACK menu. No driver comes with the app.
-- **Everything of the [PC port v1.3.1](https://github.com/almost-drowned-rat/Orta-Recompiled#readme)** - RECOMP
+- **Everything of the [PC port v1.3.2](https://github.com/almost-drowned-rat/Orta-Recompiled#readme)** - RECOMP
   OPTIONS in pages: POST PROCESSING (antialiasing, bloom, anisotropic filter, upscaling bilinear / FSR 1), DISPLAY
   (render resolution, aspect ratio 4:3 / 16:9 / 16:10 / 21:9, field of view; Android always runs full screen),
   PERFORMANCE (V-sync, FPS, frame time, game speed), RENDERING (shader compile mode, shader notice), BOOT ANIMATION.
@@ -160,7 +161,7 @@ OPTIONS > RECOMP OPTIONS > BOOT ANIMATION. **BACK > Settings > Boot animation > 
 The APK is built on Linux with `packaging/android/build_android.sh` (Android SDK 36, NDK r30, JDK 21, Gradle 9.9.1;
 the script lists every path it reads as environment variables). The Android project itself is the toolkit's template
 (`templates/android`, which grew out of this app's own Android project): it needs the toolkit
-[xboxrecomp-option-c at tag **v1.3.1**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/tree/v1.3.1) (the
+[xboxrecomp-option-c at tag **v1.3.2**](https://github.com/almost-drowned-rat/xboxrecomp-option-c/tree/v1.3.2) (the
 exact toolkit source is inside the app), its Android runtime SDK with the APU module (`libxbox_apu.so`) and the
 on-device compiler, made by the toolkit's `tools/android` scripts. The release APK is signed with the project's own
 release key; `build_android.sh --release` expects it outside the repository.
